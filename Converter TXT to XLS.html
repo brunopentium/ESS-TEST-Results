@@ -52,15 +52,19 @@
 
         if (unificar && dados.length > 0) {
           const nomeArquivo = file.name;
+          const idxCabecalho = encontrarLinhaCabecalho(dados);
+          const cabecalhoAtual = idxCabecalho >= 0 ? dados[idxCabecalho] : dados[0];
 
-          if (i === 0) {
-            cabecalhoUnificado = ["Arquivo", ...dados[0]];
+          if (!cabecalhoUnificado) {
+            cabecalhoUnificado = ["Arquivo", ...cabecalhoAtual];
             dadosUnificados.push(cabecalhoUnificado);
           }
 
-          const linhasDados = dados.slice(1);
+          const inicioDados = idxCabecalho >= 0 ? idxCabecalho + 1 : 1;
+          const linhasDados = dados.slice(inicioDados);
 
           linhasDados.forEach(linha => {
+            if (linhasSaoIguais(linha, cabecalhoAtual)) return;
             dadosUnificados.push([nomeArquivo, ...linha]);
           });
         }
@@ -82,6 +86,33 @@
       } else {
         alert("Conversão concluída! Arquivos individuais gerados.");
       }
+    }
+
+    function encontrarLinhaCabecalho(dados) {
+      for (let i = 0; i < dados.length; i++) {
+        const linha = dados[i].map(c => String(c ?? "").trim().toLowerCase());
+        const textoLinha = linha.join(" ");
+        const temSpeed = textoLinha.includes("speed");
+        const temAcqui = textoLinha.includes("#acqui") || textoLinha.includes("acqui");
+        const temRev = textoLinha.includes("#rev") || textoLinha.includes("rev");
+        const temFe = linha.some(c => /^fe\d+$/i.test(c));
+
+        if ((temSpeed && temAcqui) || (temRev && temFe)) {
+          return i;
+        }
+      }
+
+      return -1;
+    }
+
+    function linhasSaoIguais(a, b) {
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+
+      for (let i = 0; i < a.length; i++) {
+        if (String(a[i] ?? "").trim() !== String(b[i] ?? "").trim()) return false;
+      }
+
+      return true;
     }
 
     function lerArquivo(file) {
