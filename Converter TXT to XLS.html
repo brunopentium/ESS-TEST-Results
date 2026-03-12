@@ -78,6 +78,16 @@
 
       if (unificar) {
         if (dadosUnificados.length > 0) {
+          const [cabecalho, ...linhasDados] = dadosUnificados;
+          linhasDados.sort((a, b) => {
+            const nomeA = String(a?.[0] ?? "").trim();
+            const nomeB = String(b?.[0] ?? "").trim();
+            return nomeA.localeCompare(nomeB, "pt-BR", { sensitivity: "base", numeric: true });
+          });
+
+          dadosUnificados.length = 0;
+          dadosUnificados.push(cabecalho, ...linhasDados);
+
           const wsUnificado = XLSX.utils.aoa_to_sheet(dadosUnificados);
           tiparNumericos(wsUnificado);
 
