@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <title>Conversor TXT → XLSX</title>
 
-  <!-- CORRETO: importa a biblioteca XLSX.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
 </head>
 <body style="font-family:Arial; padding:24px">
   <h2>Conversor Automático TXT → XLSX</h2>
@@ -15,37 +13,84 @@
   <input type="file" id="files" accept=".txt" multiple />
   <button id="btnConv">Converter</button>
 
+  <div style="margin-top:12px;">
+    <label>
+      <input type="checkbox" id="chkUnificar" />
+      Gerar também um único arquivo Excel com todos os dados
+    </label>
+  </div>
+
   <script>
     document.getElementById("btnConv").addEventListener("click", processar);
 
-    function processar() {
+    async function processar() {
       const input = document.getElementById("files");
+      const unificar = document.getElementById("chkUnificar").checked;
+
       if (!input.files.length) {
         alert("Selecione arquivos primeiro!");
         return;
       }
 
-      [...input.files].forEach(file => {
+      const arquivos = [...input.files];
+      const dadosUnificados = [];
+      let cabecalhoUnificado = null;
+
+      for (let i = 0; i < arquivos.length; i++) {
+        const file = arquivos[i];
+        const texto = await lerArquivo(file);
+        const linhas = texto.split(/\r?\n/).filter(l => l.trim() !== "");
+        let dados = linhas.map(l => l.split(";"));
+        dados = dados.map(linha => linha.map(campo => normalizarNumero(campo)));
+
+        const ws = XLSX.utils.aoa_to_sheet(dados);
+        tiparNumericos(ws);
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Dados");
+        XLSX.writeFile(wb, file.name.replace(/\.txt$/i, ".xlsx"));
+
+        if (unificar && dados.length > 0) {
+          const nomeArquivo = file.name;
+
+          if (i === 0) {
+            cabecalhoUnificado = ["Arquivo", ...dados[0]];
+            dadosUnificados.push(cabecalhoUnificado);
+          }
+
+          const linhasDados = dados.slice(1);
+
+          linhasDados.forEach(linha => {
+            dadosUnificados.push([nomeArquivo, ...linha]);
+          });
+        }
+      }
+
+      if (unificar) {
+        if (dadosUnificados.length > 0) {
+          const wsUnificado = XLSX.utils.aoa_to_sheet(dadosUnificados);
+          tiparNumericos(wsUnificado);
+
+          const wbUnificado = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wbUnificado, wsUnificado, "Unificado");
+          XLSX.writeFile(wbUnificado, "resultado_unificado.xlsx");
+
+          alert("Conversão concluída! Arquivos individuais e unificado gerados.");
+        } else {
+          alert("Conversão concluída! Nenhum dado válido para unificar.");
+        }
+      } else {
+        alert("Conversão concluída! Arquivos individuais gerados.");
+      }
+    }
+
+    function lerArquivo(file) {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = e => {
-          const texto = e.target.result;
-          const linhas = texto.split(/\r?\n/).filter(l => l.trim() !== "");
-          let dados = linhas.map(l => l.split(";"));
-          dados = dados.map(linha => linha.map(campo => normalizarNumero(campo)));
-
-          const ws = XLSX.utils.aoa_to_sheet(dados);
-          tiparNumericos(ws);
-
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Dados");
-
-          XLSX.writeFile(wb, file.name.replace(".txt", ".xlsx"));
-        };
-
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error(`Erro ao ler o arquivo: ${file.name}`));
         reader.readAsText(file, "utf-8");
       });
-
-      alert("Conversão iniciada!");
     }
 
     function normalizarNumero(v) {
@@ -83,7 +128,5 @@
       }
     }
   </script>
-
 </body>
 </html>
-``
