@@ -48,6 +48,12 @@
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Dados");
+
+        const wsDefasagemIndividual = criarSheetDefasagem(dados, "Dados");
+        if (wsDefasagemIndividual) {
+          XLSX.utils.book_append_sheet(wb, wsDefasagemIndividual, "DEFASAGEM");
+        }
+
         XLSX.writeFile(wb, file.name.replace(/\.txt$/i, ".xlsx"));
 
         if (unificar && dados.length > 0) {
@@ -77,6 +83,12 @@
 
           const wbUnificado = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wbUnificado, wsUnificado, "Unificado");
+
+          const wsDefasagemUnificado = criarSheetDefasagem(dadosUnificados, "Unificado");
+          if (wsDefasagemUnificado) {
+            XLSX.utils.book_append_sheet(wbUnificado, wsDefasagemUnificado, "DEFASAGEM");
+          }
+
           XLSX.writeFile(wbUnificado, "resultado_unificado.xlsx");
 
           alert("Conversão concluída! Arquivos individuais e unificado gerados.");
@@ -157,6 +169,60 @@
           }
         }
       }
+    }
+
+    function criarSheetDefasagem(dados, nomeAbaOrigem) {
+      if (!Array.isArray(dados) || dados.length === 0) return null;
+
+      const idxCabecalho = encontrarLinhaCabecalho(dados);
+      const cabecalho = idxCabecalho >= 0 ? dados[idxCabecalho] : dados[0];
+      const inicioDados = idxCabecalho >= 0 ? idxCabecalho + 1 : 1;
+
+      if (!Array.isArray(cabecalho) || cabecalho.length === 0) return null;
+
+      const colunasFe = [];
+      for (let c = 0; c < cabecalho.length; c++) {
+        if (/^fe\d+$/i.test(String(cabecalho[c] ?? "").trim())) {
+          colunasFe.push(c);
+        }
+      }
+
+      if (colunasFe.length === 0) return null;
+
+      const primeiraColunaFe = colunasFe[0];
+      const linhaReferencia = new Array(cabecalho.length).fill("");
+      const colunaTituloRef = primeiraColunaFe > 0 ? primeiraColunaFe - 1 : 0;
+      linhaReferencia[colunaTituloRef] = "REFERENCY";
+
+      colunasFe.forEach(c => {
+        linhaReferencia[c] = cabecalho[c];
+      });
+
+      const aoaDefasagem = [linhaReferencia, [...cabecalho]];
+
+      for (let r = inicioDados; r < dados.length; r++) {
+        const linhaOrigem = dados[r];
+        if (linhasSaoIguais(linhaOrigem, cabecalho)) continue;
+
+        const novaLinha = new Array(cabecalho.length).fill("");
+
+        for (let c = 0; c < cabecalho.length; c++) {
+          const valor = linhaOrigem?.[c] ?? "";
+          if (colunasFe.includes(c)) {
+            const letraColuna = XLSX.utils.encode_col(c);
+            const linhaAbaOriginal = r + 1;
+            novaLinha[c] = {
+              f: `'${nomeAbaOrigem}'!${letraColuna}${linhaAbaOriginal}-${letraColuna}$1`
+            };
+          } else {
+            novaLinha[c] = valor;
+          }
+        }
+
+        aoaDefasagem.push(novaLinha);
+      }
+
+      return XLSX.utils.aoa_to_sheet(aoaDefasagem);
     }
   </script>
 </body>
