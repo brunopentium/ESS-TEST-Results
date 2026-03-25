@@ -578,7 +578,8 @@
         xLabel: `${seriePrefixo} (posição)`,
         yLabel: "Ângulo (°)",
         prefixoSerie: seriePrefixo,
-        linhasFiltradas: linhasFiltradas.length
+        linhasFiltradas: linhasFiltradas.length,
+        tituloArquivo: extrairTituloGraficoDeArquivo(linhasFiltradas)
       };
     }
 
@@ -589,6 +590,28 @@
         const valorLinha = String(row[filtro.coluna] ?? "").trim();
         return valores.includes(valorLinha);
       });
+    }
+
+    function extrairTituloGraficoDeArquivo(linhasFiltradas) {
+      const colunaArquivo = estadoComparador.filtroCols.arquivo || "Arquivo";
+      const nomeArquivo = (linhasFiltradas || [])
+        .map(linha => String(linha[colunaArquivo] ?? linha["Arquivo"] ?? "").trim())
+        .find(Boolean);
+
+      if (!nomeArquivo) return "";
+
+      const nomeBase = nomeArquivo
+        .split(/[\\/]/)
+        .pop()
+        .replace(/\.[^.]+$/, "");
+
+      const trechoComMm = nomeBase.match(/_M_(.+?_[+-]?\d+(?:[.,]\d+)?mm)(?:_|$)/i);
+      if (trechoComMm) return trechoComMm[1];
+
+      const trechoSemMm = nomeBase.match(/_M_(.+?)(?:_(?:[+-]?\d+(?:[.,]\d+)?)rpm|$)/i);
+      if (trechoSemMm) return trechoSemMm[1];
+
+      return nomeBase;
     }
 
     function calcularEscalaCompartilhada(pontosA, pontosB) {
@@ -675,7 +698,10 @@
           },
           plugins: {
             legend: { display: false },
-            title: { display: true, text: `${titulo} — ${subtitulo}` }
+            title: {
+              display: true,
+              text: `${serie.tituloArquivo || titulo} — ${subtitulo}`
+            }
           }
         }
       });
