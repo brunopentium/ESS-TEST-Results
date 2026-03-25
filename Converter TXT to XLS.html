@@ -344,6 +344,13 @@
         return;
       }
 
+      const configDefasagem = capturarConfigDefasagem();
+      const erroConfig = validarConfigDefasagem(configDefasagem);
+      if (erroConfig) {
+        alert(erroConfig);
+        return;
+      }
+
       const arquivos = [...input.files];
       const dadosUnificados = [];
       let cabecalhoUnificado = null;
@@ -360,11 +367,6 @@
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Dados");
-
-        const wsDefasagemIndividual = criarSheetDefasagem(dados, "Dados");
-        if (wsDefasagemIndividual) {
-          XLSX.utils.book_append_sheet(wb, wsDefasagemIndividual, "DEFASAGEM");
-        }
 
         XLSX.writeFile(wb, file.name.replace(/\.txt$/i, ".xlsx"));
 
@@ -407,7 +409,7 @@
           const wbUnificado = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wbUnificado, wsUnificado, "Unificado");
 
-          const wsDefasagemUnificado = criarSheetDefasagem(dadosUnificados, "Unificado");
+          const wsDefasagemUnificado = criarSheetDefasagem(dadosUnificados, "Unificado", configDefasagem);
           if (wsDefasagemUnificado) {
             XLSX.utils.book_append_sheet(wbUnificado, wsDefasagemUnificado, "DEFASAGEM");
           }
@@ -827,7 +829,7 @@
       }
     }
 
-    function criarSheetDefasagem(dados, nomeAbaOrigem) {
+    function criarSheetDefasagem(dados, nomeAbaOrigem, configDefasagem) {
       if (!Array.isArray(dados) || dados.length === 0) return null;
 
       const idxCabecalho = encontrarLinhaCabecalho(dados);
@@ -850,7 +852,7 @@
       const colunaTituloRef = primeiraColunaFe > 0 ? primeiraColunaFe - 1 : 0;
       linhaReferencia[colunaTituloRef] = "REFERENCY";
 
-      const referencias = construirReferenciasAngulares(cabecalho, colunasSerie);
+      const referencias = construirReferenciasAngulares(cabecalho, colunasSerie, configDefasagem);
       colunasSerie.forEach(c => {
         linhaReferencia[c] = referencias[c] ?? "";
       });
@@ -918,36 +920,22 @@
       for (let i = 1; i <= qtd; i++) criarCampo(`RE${i}`);
     }
 
-    function construirReferenciasAngulares(cabecalho, colunasSerie) {
+    function construirReferenciasAngulares(cabecalho, colunasSerie, configDefasagem) {
       const refs = {};
-      const modo = document.getElementById("sensorMode").value;
+      const modo = configDefasagem?.modo ?? document.getElementById("sensorMode").value;
 
       if (modo === "crank") {
-        const primeiro = parseNumero(document.getElementById("crankFirstEdge").value);
-        const passo = parseNumero(document.getElementById("crankStep").value);
+        const primeiro = parseNumero(configDefasagem?.crankFirstEdge);
+        const passo = parseNumero(configDefasagem?.crankStep);
         if (!Number.isFinite(primeiro) || !Number.isFinite(passo)) return refs;
 
-        const nomesOrdenados = colunasSerie
-          .map(c => ({ c, nome: String(cabecalho[c] ?? "").trim() }))
-          .sort((a, b) => {
-            const pa = a.nome.slice(0, 2).toUpperCase();
-            const pb = b.nome.slice(0, 2).toUpperCase();
-            if (pa !== pb) return pa.localeCompare(pb);
-            return extrairIndiceSerie(a.nome) - extrairIndiceSerie(b.nome);
-          });
-
-        nomesOrdenados.forEach((item, idx) => {
-          refs[item.c] = primeiro + (idx * passo);
+        colunasSerie.forEach((coluna, idx) => {
+          refs[coluna] = primeiro + (idx * passo);
         });
         return refs;
       }
 
-      const qtd = Math.max(1, Math.min(12, Number(document.getElementById("camEdges").value) || 4));
-      const mapa = {};
-      for (let i = 1; i <= qtd; i++) {
-        mapa[`FE${i}`] = parseNumero(document.getElementById(`camRef_FE${i}`)?.value);
-        mapa[`RE${i}`] = parseNumero(document.getElementById(`camRef_RE${i}`)?.value);
-      }
+      const mapa = configDefasagem?.camRefs || {};
 
       colunasSerie.forEach(c => {
         const nome = String(cabecalho[c] ?? "").trim().toUpperCase();
@@ -955,6 +943,49 @@
         if (Number.isFinite(ref)) refs[c] = ref;
       });
       return refs;
+    }
+
+    function capturarConfigDefasagem() {
+      const modo = document.getElementById("sensorMode").value;
+      const config = { modo };
+
+      if (modo === "crank") {
+        config.crankFirstEdge = document.getElementById("crankFirstEdge").value;
+        config.crankStep = document.getElementById("crankStep").value;
+        return config;
+      }
+
+      const qtd = Math.max(1, Math.min(12, Number(document.getElementById("camEdges").value) || 4));
+      const camRefs = {};
+      for (let i = 1; i <= qtd; i++) {
+        camRefs[`FE${i}`] = document.getElementById(`camRef_FE${i}`)?.value ?? "";
+        camRefs[`RE${i}`] = document.getElementById(`camRef_RE${i}`)?.value ?? "";
+      }
+      config.camRefs = camRefs;
+      return config;
+    }
+
+    function validarConfigDefasagem(configDefasagem) {
+      if (!configDefasagem) return "Não foi possível ler a configuração de defasagem.";
+
+      if (configDefasagem.modo === "crank") {
+        const primeiro = parseNumero(configDefasagem.crankFirstEdge);
+        const passo = parseNumero(configDefasagem.crankStep);
+        if (!Number.isFinite(primeiro)) return "Informe um número válido para o ângulo da 1ª borda (Crank).";
+        if (!Number.isFinite(passo)) return "Informe um número válido para o incremento por borda (Crank).";
+        return "";
+      }
+
+      const refs = Object.entries(configDefasagem.camRefs || {});
+      if (!refs.length) return "Informe os ângulos de referência para Camshaft.";
+
+      const vazio = refs.find(([, valor]) => String(valor ?? "").trim() === "");
+      if (vazio) return `Informe o ângulo de referência para ${vazio[0]}.`;
+
+      const invalido = refs.find(([, valor]) => !Number.isFinite(parseNumero(valor)));
+      if (invalido) return `Valor inválido no ângulo de referência de ${invalido[0]}.`;
+
+      return "";
     }
 
     function extrairMetadadosArquivo(nomeArquivo) {
