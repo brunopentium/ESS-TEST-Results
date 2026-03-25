@@ -378,20 +378,27 @@
         let dados = linhas.map(l => l.split(";"));
         dados = dados.map(linha => linha.map(campo => normalizarNumero(campo)));
 
-        const ws = XLSX.utils.aoa_to_sheet(dados);
+        const nomeArquivo = file.name;
+        const idxCabecalho = encontrarLinhaCabecalho(dados);
+        const cabecalhoAtual = idxCabecalho >= 0 ? dados[idxCabecalho] : (dados[0] || []);
+        const metadadosArquivo = extrairMetadadosTexto(linhas, nomeArquivo);
+        const dadosComMetadados = aplicarMetadadosNoArquivo(dados, idxCabecalho, cabecalhoAtual, metadadosArquivo);
+
+        const ws = XLSX.utils.aoa_to_sheet(dadosComMetadados);
         tiparNumericos(ws);
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Dados");
 
+        const wsDefasagemIndividual = criarSheetDefasagem(dadosComMetadados, "Dados", configDefasagem);
+        if (wsDefasagemIndividual) {
+          XLSX.utils.book_append_sheet(wb, wsDefasagemIndividual, "DEFASAGEM");
+        }
+
         XLSX.writeFile(wb, file.name.replace(/\.txt$/i, ".xlsx"));
 
-        if (unificar && dados.length > 0) {
-          const nomeArquivo = file.name;
-          const metadadosArquivo = extrairMetadadosTexto(linhas, nomeArquivo);
-          const idxCabecalho = encontrarLinhaCabecalho(dados);
-          const cabecalhoAtual = idxCabecalho >= 0 ? dados[idxCabecalho] : dados[0];
-          const cabecalhoComMeta = inserirMetadadosNoCabecalho(cabecalhoAtual);
+        if (unificar && dadosComMetadados.length > 0) {
+          const cabecalhoComMeta = idxCabecalho >= 0 ? dadosComMetadados[idxCabecalho] : (dadosComMetadados[0] || []);
 
           if (!cabecalhoUnificado) {
             cabecalhoUnificado = ["Arquivo", ...cabecalhoComMeta];
@@ -399,11 +406,11 @@
           }
 
           const inicioDados = idxCabecalho >= 0 ? idxCabecalho + 1 : 1;
-          const linhasDados = dados.slice(inicioDados);
+          const linhasDados = dadosComMetadados.slice(inicioDados);
 
           linhasDados.forEach(linha => {
-            if (linhasSaoIguais(linha, cabecalhoAtual)) return;
-            dadosUnificados.push([nomeArquivo, ...inserirMetadadosNaLinha(linha, cabecalhoAtual, metadadosArquivo)]);
+            if (linhasSaoIguais(linha, cabecalhoComMeta)) return;
+            dadosUnificados.push([nomeArquivo, ...linha]);
           });
         }
       }
@@ -1143,17 +1150,74 @@
       };
     }
 
-    function inserirMetadadosNoCabecalho(cabecalho) {
+    function encontrarIndiceColuna(cabecalho, aliases) {
+      if (!Array.isArray(cabecalho) || !cabecalho.length) return -1;
+      const aliasesNormalizados = aliases.map(a => normalizarCabecalho(a));
+      return cabecalho.findIndex(col => {
+        const valor = normalizarCabecalho(col);
+        return aliasesNormalizados.some(alias => valor.includes(alias));
+      });
+    }
+
+    function cabecalhoJaTemMetadados(cabecalho) {
+      return {
+        airGap: encontrarIndiceColuna(cabecalho, ["xaxis", "airgap", "air gap"]) >= 0,
+        posY: encontrarIndiceColuna(cabecalho, ["yaxis", "posição y", "posicaoy", "y pos"]) >= 0,
+        rpm: encontrarIndiceColuna(cabecalho, ["speed", "rpm", "target wheel speed"]) >= 0
+      };
+    }
+
+    function aplicarMetadadosNoArquivo(dados, idxCabecalho, cabecalhoOriginal, metadadosArquivo) {
+      if (!Array.isArray(dados) || !dados.length) return [];
+      if (!Array.isArray(cabecalhoOriginal) || !cabecalhoOriginal.length) return dados;
+
+      const jaTem = cabecalhoJaTemMetadados(cabecalhoOriginal);
+      if (jaTem.airGap && jaTem.posY && jaTem.rpm) return dados;
+
+      const cabecalhoComMeta = inserirMetadadosNoCabecalho(cabecalhoOriginal, jaTem);
+      const inicioDados = idxCabecalho >= 0 ? idxCabecalho + 1 : 1;
+      const saida = [];
+
+      for (let i = 0; i < dados.length; i++) {
+        const linha = dados[i];
+        if (i === idxCabecalho || (idxCabecalho < 0 && i === 0)) {
+          saida.push(cabecalhoComMeta);
+          continue;
+        }
+
+        if (i < inicioDados) {
+          saida.push(linha);
+          continue;
+        }
+
+        if (linhasSaoIguais(linha, cabecalhoOriginal)) {
+          saida.push(cabecalhoComMeta);
+          continue;
+        }
+
+        saida.push(inserirMetadadosNaLinha(linha, cabecalhoOriginal, metadadosArquivo, jaTem));
+      }
+
+      return saida;
+    }
+
+    function inserirMetadadosNoCabecalho(cabecalho, jaTem = {}) {
       const idxRev = cabecalho.findIndex(c => String(c ?? "").trim().toLowerCase() === "#rev");
-      const extras = ["Air Gap (mm)", "Posição Y (mm)", "RPM"];
+      const extras = [];
+      if (!jaTem.airGap) extras.push("Air Gap (mm)");
+      if (!jaTem.posY) extras.push("Posição Y (mm)");
+      if (!jaTem.rpm) extras.push("RPM");
       if (idxRev < 0) return [...cabecalho, ...extras];
       return [...cabecalho.slice(0, idxRev + 1), ...extras, ...cabecalho.slice(idxRev + 1)];
     }
 
-    function inserirMetadadosNaLinha(linha, cabecalhoOriginal, metadadosArquivo) {
+    function inserirMetadadosNaLinha(linha, cabecalhoOriginal, metadadosArquivo, jaTem = {}) {
       const idxRev = cabecalhoOriginal.findIndex(c => String(c ?? "").trim().toLowerCase() === "#rev");
       const meta = metadadosArquivo || {};
-      const extras = [meta.airGap, meta.posY, meta.rpm];
+      const extras = [];
+      if (!jaTem.airGap) extras.push(meta.airGap);
+      if (!jaTem.posY) extras.push(meta.posY);
+      if (!jaTem.rpm) extras.push(meta.rpm);
       if (idxRev < 0) return [...linha, ...extras];
       return [...linha.slice(0, idxRev + 1), ...extras, ...linha.slice(idxRev + 1)];
     }
