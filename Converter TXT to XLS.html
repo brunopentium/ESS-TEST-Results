@@ -636,12 +636,9 @@
         };
       }
 
-      const xs = todos.map(p => p.x);
-      const ys = todos.map(p => p.y);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
+      const limites = calcularLimitesPontos(todos);
+      if (!limites) return {};
+      const { minX, maxX, minY, maxY } = limites;
 
       const padX = (maxX - minX || 1) * 0.05;
       const padY = (maxY - minY || 1) * 0.05;
@@ -652,6 +649,34 @@
         minY: minY - padY,
         maxY: maxY + padY
       };
+    }
+
+    function calcularLimitesPontos(pontos) {
+      if (!Array.isArray(pontos) || !pontos.length) return null;
+
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+
+      for (let i = 0; i < pontos.length; i++) {
+        const ponto = pontos[i];
+        const x = ponto?.x;
+        const y = ponto?.y;
+
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+
+      if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+        return null;
+      }
+
+      return { minX, maxX, minY, maxY };
     }
 
     function renderGrafico(stateKey, canvasId, titulo, serie, cor, escala) {
