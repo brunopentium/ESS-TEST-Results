@@ -172,12 +172,16 @@
         <h3>Cenário A</h3>
         <div class="grid">
           <div>
-            <label for="aX">Eixo X</label>
-            <select id="aX"></select>
+            <label for="aSerie">Série no eixo X</label>
+            <select id="aSerie"></select>
           </div>
           <div>
-            <label for="aY">Eixo Y</label>
-            <select id="aY"></select>
+            <label for="aStart">Do sensor</label>
+            <select id="aStart"></select>
+          </div>
+          <div>
+            <label for="aEnd">Até o sensor</label>
+            <select id="aEnd"></select>
           </div>
           <div>
             <label for="aF1Col">Filtro 1 - coluna (ex.: RPM)</label>
@@ -205,12 +209,16 @@
         <h3>Cenário B</h3>
         <div class="grid">
           <div>
-            <label for="bX">Eixo X</label>
-            <select id="bX"></select>
+            <label for="bSerie">Série no eixo X</label>
+            <select id="bSerie"></select>
           </div>
           <div>
-            <label for="bY">Eixo Y</label>
-            <select id="bY"></select>
+            <label for="bStart">Do sensor</label>
+            <select id="bStart"></select>
+          </div>
+          <div>
+            <label for="bEnd">Até o sensor</label>
+            <select id="bEnd"></select>
           </div>
           <div>
             <label for="bF1Col">Filtro 1 - coluna (ex.: RPM)</label>
@@ -243,7 +251,11 @@
       headers: [],
       rows: [],
       chartA: null,
-      chartB: null
+      chartB: null,
+      seriesCols: {
+        FE: [],
+        RE: []
+      }
     };
 
     document.getElementById("excelFile").addEventListener("change", carregarExcelComparador);
@@ -259,8 +271,12 @@
       });
     });
 
-    ["aX", "aY", "aF1Col", "aF2Col", "bX", "bY", "bF1Col", "bF2Col"].forEach(id => {
+    ["aSerie", "aStart", "aEnd", "aF1Col", "aF2Col", "bSerie", "bStart", "bEnd", "bF1Col", "bF2Col"].forEach(id => {
       document.getElementById(id).addEventListener("change", () => {
+        if (id.endsWith("Serie")) {
+          const sufixo = id.startsWith("a") ? "A" : "B";
+          preencherLimitesSerie(sufixo);
+        }
         if (estadoComparador.rows.length) atualizarGraficos();
       });
     });
@@ -397,9 +413,9 @@
     }
 
     function preencherSelects(headers) {
-      const ids = ["aX", "aY", "aF1Col", "aF2Col", "bX", "bY", "bF1Col", "bF2Col"];
+      const idsFiltros = ["aF1Col", "aF2Col", "bF1Col", "bF2Col"];
 
-      ids.forEach(id => {
+      idsFiltros.forEach(id => {
         const sel = document.getElementById(id);
         sel.innerHTML = "";
 
@@ -419,12 +435,23 @@
         }
       });
 
-      const sugestaoX = encontrarPorPadrao(headers, ["speed", "rpm", "#rev", "rev"]);
-      const sugestaoY = encontrarPorPadrao(headers, ["air gap", "air_gap", "fe1", "fe2", "fe3", "fe4"]);
-      document.getElementById("aX").value = sugestaoX || headers[0] || "";
-      document.getElementById("bX").value = sugestaoX || headers[0] || "";
-      document.getElementById("aY").value = sugestaoY || headers[1] || headers[0] || "";
-      document.getElementById("bY").value = sugestaoY || headers[1] || headers[0] || "";
+      estadoComparador.seriesCols.FE = extrairColunasSerie(headers, "FE");
+      estadoComparador.seriesCols.RE = extrairColunasSerie(headers, "RE");
+
+      ["A", "B"].forEach(sufixo => {
+        const selSerie = document.getElementById(`${sufixo.toLowerCase()}Serie`);
+        selSerie.innerHTML = "";
+
+        ["FE", "RE"].forEach(prefixo => {
+          if (!estadoComparador.seriesCols[prefixo].length) return;
+          const opt = document.createElement("option");
+          opt.value = prefixo;
+          opt.textContent = `${prefixo} (sensores)`;
+          selSerie.appendChild(opt);
+        });
+
+        preencherLimitesSerie(sufixo);
+      });
     }
 
     function atualizarGraficos() {
@@ -432,28 +459,49 @@
       const serieB = montarSerie("B");
 
       const escala = calcularEscalaCompartilhada(serieA.pontos, serieB.pontos);
-      renderGrafico("chartA", "chartA", "Cenário A", serieA.pontos, serieA.xLabel, serieA.yLabel, "#1f77b4", escala);
-      renderGrafico("chartB", "chartB", "Cenário B", serieB.pontos, serieB.xLabel, serieB.yLabel, "#d62728", escala);
+      renderGrafico("chartA", "chartA", "Cenário A", serieA, "#1f77b4", escala);
+      renderGrafico("chartB", "chartB", "Cenário B", serieB, "#d62728", escala);
     }
 
     function montarSerie(sufixo) {
-      const xCol = document.getElementById(`${sufixo.toLowerCase()}X`).value;
-      const yCol = document.getElementById(`${sufixo.toLowerCase()}Y`).value;
+      const seriePrefixo = document.getElementById(`${sufixo.toLowerCase()}Serie`).value;
+      const startCol = document.getElementById(`${sufixo.toLowerCase()}Start`).value;
+      const endCol = document.getElementById(`${sufixo.toLowerCase()}End`).value;
       const f1Col = document.getElementById(`${sufixo.toLowerCase()}F1Col`).value;
       const f1Val = document.getElementById(`${sufixo.toLowerCase()}F1Val`).value;
       const f2Col = document.getElementById(`${sufixo.toLowerCase()}F2Col`).value;
       const f2Val = document.getElementById(`${sufixo.toLowerCase()}F2Val`).value;
 
-      const pontos = estadoComparador.rows
-        .filter(row => aplicarFiltro(row, f1Col, f1Val) && aplicarFiltro(row, f2Col, f2Val))
-        .map(row => ({
-          x: parseNumero(row[xCol]),
-          y: parseNumero(row[yCol])
-        }))
-        .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
-        .sort((a, b) => a.x - b.x);
+      const colunasSerie = estadoComparador.seriesCols[seriePrefixo] || [];
+      if (!colunasSerie.length) {
+        return { pontos: [], xLabel: "Sensores", yLabel: "Ângulo (°)", prefixoSerie: "", linhasFiltradas: 0 };
+      }
 
-      return { pontos, xLabel: xCol || "X", yLabel: yCol || "Y" };
+      const idxIni = Math.max(0, colunasSerie.indexOf(startCol));
+      const idxFimRaw = colunasSerie.indexOf(endCol);
+      const idxFim = idxFimRaw < 0 ? colunasSerie.length - 1 : idxFimRaw;
+      const [inicio, fim] = idxIni <= idxFim ? [idxIni, idxFim] : [idxFim, idxIni];
+      const faixaColunas = colunasSerie.slice(inicio, fim + 1);
+
+      const linhasFiltradas = estadoComparador.rows.filter(row => aplicarFiltro(row, f1Col, f1Val) && aplicarFiltro(row, f2Col, f2Val));
+      const linhaBase = linhasFiltradas[0];
+
+      const pontos = linhaBase
+        ? faixaColunas
+          .map(col => ({
+            x: extrairIndiceSerie(col),
+            y: parseNumero(linhaBase[col])
+          }))
+          .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+        : [];
+
+      return {
+        pontos,
+        xLabel: `${seriePrefixo} (posição)`,
+        yLabel: "Ângulo (°)",
+        prefixoSerie: seriePrefixo,
+        linhasFiltradas: linhasFiltradas.length
+      };
     }
 
     function aplicarFiltro(row, coluna, valorFiltro) {
@@ -504,9 +552,14 @@
       };
     }
 
-    function renderGrafico(stateKey, canvasId, titulo, pontos, xLabel, yLabel, cor, escala) {
+    function renderGrafico(stateKey, canvasId, titulo, serie, cor, escala) {
       const chartAtual = estadoComparador[stateKey];
       if (chartAtual) chartAtual.destroy();
+
+      const pontos = serie.pontos || [];
+      const subtitulo = serie.linhasFiltradas > 1
+        ? `${serie.linhasFiltradas} linhas encontradas (exibindo a 1ª)`
+        : `${serie.linhasFiltradas} linha encontrada`;
 
       const ctx = document.getElementById(canvasId).getContext("2d");
       estadoComparador[stateKey] = new Chart(ctx, {
@@ -533,31 +586,61 @@
           scales: {
             x: {
               type: "linear",
-              title: { display: true, text: xLabel },
+              title: { display: true, text: serie.xLabel },
               min: escala.minX,
-              max: escala.maxX
+              max: escala.maxX,
+              ticks: {
+                callback: value => serie.prefixoSerie ? `${serie.prefixoSerie}${value}` : value
+              }
             },
             y: {
               type: "linear",
-              title: { display: true, text: yLabel },
+              title: { display: true, text: serie.yLabel },
               min: escala.minY,
               max: escala.maxY
             }
           },
           plugins: {
             legend: { display: true },
-            title: { display: true, text: titulo }
+            title: { display: true, text: `${titulo} — ${subtitulo}` }
           }
         }
       });
     }
 
-    function encontrarPorPadrao(headers, padroes) {
-      for (const h of headers) {
-        const low = String(h).toLowerCase();
-        if (padroes.some(p => low.includes(p))) return h;
-      }
-      return "";
+    function preencherLimitesSerie(sufixo) {
+      const prefixo = document.getElementById(`${sufixo.toLowerCase()}Serie`).value;
+      const colunasSerie = estadoComparador.seriesCols[prefixo] || [];
+      const selInicio = document.getElementById(`${sufixo.toLowerCase()}Start`);
+      const selFim = document.getElementById(`${sufixo.toLowerCase()}End`);
+      const valorInicioAtual = selInicio.value;
+      const valorFimAtual = selFim.value;
+
+      [selInicio, selFim].forEach(sel => {
+        sel.innerHTML = "";
+        colunasSerie.forEach(col => {
+          const opt = document.createElement("option");
+          opt.value = col;
+          opt.textContent = col;
+          sel.appendChild(opt);
+        });
+      });
+
+      if (!colunasSerie.length) return;
+      selInicio.value = colunasSerie.includes(valorInicioAtual) ? valorInicioAtual : colunasSerie[0];
+      selFim.value = colunasSerie.includes(valorFimAtual) ? valorFimAtual : colunasSerie[colunasSerie.length - 1];
+    }
+
+    function extrairColunasSerie(headers, prefixo) {
+      const regex = new RegExp(`^${prefixo}(\\d+)$`, "i");
+      return headers
+        .filter(h => regex.test(String(h ?? "").trim()))
+        .sort((a, b) => extrairIndiceSerie(a) - extrairIndiceSerie(b));
+    }
+
+    function extrairIndiceSerie(valor) {
+      const m = String(valor ?? "").trim().match(/\d+$/);
+      return m ? Number(m[0]) : NaN;
     }
 
     function parseNumero(v) {
