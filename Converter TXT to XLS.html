@@ -191,28 +191,32 @@
             <select id="aSerie"></select>
           </div>
           <div>
-            <label for="aStart">Do sensor</label>
-            <select id="aStart"></select>
+            <label for="aSensors">Sensores para plotar (Ctrl/Cmd + clique)</label>
+            <select id="aSensors" multiple size="6"></select>
           </div>
           <div>
-            <label for="aEnd">Até o sensor</label>
-            <select id="aEnd"></select>
+            <label for="aFiltroArquivo">Arquivos</label>
+            <select id="aFiltroArquivo" multiple size="6"></select>
           </div>
           <div>
-            <label for="aF1Col">Filtro 1 - coluna (ex.: RPM)</label>
-            <select id="aF1Col"></select>
+            <label for="aFiltroAcqui">Acquisições</label>
+            <select id="aFiltroAcqui" multiple size="6"></select>
           </div>
           <div>
-            <label for="aF1Val">Filtro 1 - valor</label>
-            <input id="aF1Val" placeholder="Ex.: 1800" />
+            <label for="aFiltroRev">Revoluções</label>
+            <select id="aFiltroRev" multiple size="6"></select>
           </div>
           <div>
-            <label for="aF2Col">Filtro 2 - coluna (ex.: Air Gap)</label>
-            <select id="aF2Col"></select>
+            <label for="aFiltroAirGap">Air Gap</label>
+            <select id="aFiltroAirGap" multiple size="6"></select>
           </div>
           <div>
-            <label for="aF2Val">Filtro 2 - valor</label>
-            <input id="aF2Val" placeholder="Ex.: 4" />
+            <label for="aFiltroPosY">Posição Y</label>
+            <select id="aFiltroPosY" multiple size="6"></select>
+          </div>
+          <div>
+            <label for="aFiltroRPM">RPM</label>
+            <select id="aFiltroRPM" multiple size="6"></select>
           </div>
         </div>
         <div class="chart-wrap">
@@ -228,28 +232,32 @@
             <select id="bSerie"></select>
           </div>
           <div>
-            <label for="bStart">Do sensor</label>
-            <select id="bStart"></select>
+            <label for="bSensors">Sensores para plotar (Ctrl/Cmd + clique)</label>
+            <select id="bSensors" multiple size="6"></select>
           </div>
           <div>
-            <label for="bEnd">Até o sensor</label>
-            <select id="bEnd"></select>
+            <label for="bFiltroArquivo">Arquivos</label>
+            <select id="bFiltroArquivo" multiple size="6"></select>
           </div>
           <div>
-            <label for="bF1Col">Filtro 1 - coluna (ex.: RPM)</label>
-            <select id="bF1Col"></select>
+            <label for="bFiltroAcqui">Acquisições</label>
+            <select id="bFiltroAcqui" multiple size="6"></select>
           </div>
           <div>
-            <label for="bF1Val">Filtro 1 - valor</label>
-            <input id="bF1Val" placeholder="Ex.: 2200" />
+            <label for="bFiltroRev">Revoluções</label>
+            <select id="bFiltroRev" multiple size="6"></select>
           </div>
           <div>
-            <label for="bF2Col">Filtro 2 - coluna (ex.: Air Gap)</label>
-            <select id="bF2Col"></select>
+            <label for="bFiltroAirGap">Air Gap</label>
+            <select id="bFiltroAirGap" multiple size="6"></select>
           </div>
           <div>
-            <label for="bF2Val">Filtro 2 - valor</label>
-            <input id="bF2Val" placeholder="Ex.: 5" />
+            <label for="bFiltroPosY">Posição Y</label>
+            <select id="bFiltroPosY" multiple size="6"></select>
+          </div>
+          <div>
+            <label for="bFiltroRPM">RPM</label>
+            <select id="bFiltroRPM" multiple size="6"></select>
           </div>
         </div>
         <div class="chart-wrap">
@@ -303,6 +311,14 @@
       seriesCols: {
         FE: [],
         RE: []
+      },
+      filtroCols: {
+        arquivo: "",
+        acqui: "",
+        rev: "",
+        airGap: "",
+        posY: "",
+        rpm: ""
       }
     };
 
@@ -314,17 +330,17 @@
       if (estadoComparador.rows.length) atualizarGraficos();
     });
 
-    ["xMin", "xMax", "yMin", "yMax", "aF1Val", "aF2Val", "bF1Val", "bF2Val"].forEach(id => {
+    ["xMin", "xMax", "yMin", "yMax"].forEach(id => {
       document.getElementById(id).addEventListener("input", () => {
         if (estadoComparador.rows.length) atualizarGraficos();
       });
     });
 
-    ["aSerie", "aStart", "aEnd", "aF1Col", "aF2Col", "bSerie", "bStart", "bEnd", "bF1Col", "bF2Col"].forEach(id => {
+    ["aSerie", "aSensors", "aFiltroArquivo", "aFiltroAcqui", "aFiltroRev", "aFiltroAirGap", "aFiltroPosY", "aFiltroRPM", "bSerie", "bSensors", "bFiltroArquivo", "bFiltroAcqui", "bFiltroRev", "bFiltroAirGap", "bFiltroPosY", "bFiltroRPM"].forEach(id => {
       document.getElementById(id).addEventListener("change", () => {
         if (id.endsWith("Serie")) {
           const sufixo = id.startsWith("a") ? "A" : "B";
-          preencherLimitesSerie(sufixo);
+          preencherSensoresSerie(sufixo);
         }
         if (estadoComparador.rows.length) atualizarGraficos();
       });
@@ -493,39 +509,7 @@
     }
 
     function preencherSelects(headers) {
-      const idsFiltros = ["aF1Col", "aF2Col", "bF1Col", "bF2Col"];
-
-      idsFiltros.forEach(id => {
-        const sel = document.getElementById(id);
-        sel.innerHTML = "";
-
-        const optVazio = document.createElement("option");
-        optVazio.value = "";
-        optVazio.textContent = "(sem filtro)";
-
-        headers.forEach(h => {
-          const opt = document.createElement("option");
-          opt.value = h;
-          opt.textContent = h;
-          sel.appendChild(opt);
-        });
-
-        if (id.endsWith("F1Col") || id.endsWith("F2Col")) {
-          sel.insertBefore(optVazio, sel.firstChild);
-        }
-      });
-
-      const sugestoes = [
-        { id: "aF1Col", preferencia: "RPM" },
-        { id: "aF2Col", preferencia: "Air Gap (mm)" },
-        { id: "bF1Col", preferencia: "RPM" },
-        { id: "bF2Col", preferencia: "Air Gap (mm)" }
-      ];
-      sugestoes.forEach(({ id, preferencia }) => {
-        const sel = document.getElementById(id);
-        const existe = [...sel.options].some(o => o.value === preferencia);
-        if (existe) sel.value = preferencia;
-      });
+      estadoComparador.filtroCols = detectarColunasFiltros(headers);
 
       estadoComparador.seriesCols.FE = extrairColunasSerie(headers, "FE");
       estadoComparador.seriesCols.RE = extrairColunasSerie(headers, "RE");
@@ -542,7 +526,8 @@
           selSerie.appendChild(opt);
         });
 
-        preencherLimitesSerie(sufixo);
+        preencherSensoresSerie(sufixo);
+        preencherCombosFiltros(sufixo);
       });
     }
 
@@ -557,25 +542,20 @@
 
     function montarSerie(sufixo) {
       const seriePrefixo = document.getElementById(`${sufixo.toLowerCase()}Serie`).value;
-      const startCol = document.getElementById(`${sufixo.toLowerCase()}Start`).value;
-      const endCol = document.getElementById(`${sufixo.toLowerCase()}End`).value;
-      const f1Col = document.getElementById(`${sufixo.toLowerCase()}F1Col`).value;
-      const f1Val = document.getElementById(`${sufixo.toLowerCase()}F1Val`).value;
-      const f2Col = document.getElementById(`${sufixo.toLowerCase()}F2Col`).value;
-      const f2Val = document.getElementById(`${sufixo.toLowerCase()}F2Val`).value;
+      const sensoresSelecionados = obterValoresSelecionados(`${sufixo.toLowerCase()}Sensors`);
 
       const colunasSerie = estadoComparador.seriesCols[seriePrefixo] || [];
       if (!colunasSerie.length) {
         return { datasets: [], pontosTodos: [], xLabel: "Sensores", yLabel: "Ângulo (°)", prefixoSerie: "", linhasFiltradas: 0 };
       }
 
-      const idxIni = Math.max(0, colunasSerie.indexOf(startCol));
-      const idxFimRaw = colunasSerie.indexOf(endCol);
-      const idxFim = idxFimRaw < 0 ? colunasSerie.length - 1 : idxFimRaw;
-      const [inicio, fim] = idxIni <= idxFim ? [idxIni, idxFim] : [idxFim, idxIni];
-      const faixaColunas = colunasSerie.slice(inicio, fim + 1);
+      const faixaColunas = sensoresSelecionados.length
+        ? colunasSerie.filter(col => sensoresSelecionados.includes(col))
+        : [...colunasSerie];
 
-      const linhasFiltradas = estadoComparador.rows.filter(row => aplicarFiltro(row, f1Col, f1Val) && aplicarFiltro(row, f2Col, f2Val));
+      const filtros = montarFiltrosMultiplos(sufixo);
+
+      const linhasFiltradas = estadoComparador.rows.filter(row => aplicarFiltrosMultiplos(row, filtros));
       const datasets = linhasFiltradas.map((linha, idx) => {
         const pontos = faixaColunas
           .map(col => ({
@@ -602,19 +582,13 @@
       };
     }
 
-    function aplicarFiltro(row, coluna, valorFiltro) {
-      const valor = String(valorFiltro ?? "").trim();
-      if (!coluna || valor === "") return true;
-
-      const valorLinha = row[coluna];
-      const nFiltro = parseNumero(valor);
-      const nLinha = parseNumero(valorLinha);
-
-      if (Number.isFinite(nFiltro) && Number.isFinite(nLinha)) {
-        return Math.abs(nFiltro - nLinha) < 1e-9;
-      }
-
-      return String(valorLinha ?? "").toLowerCase().includes(valor.toLowerCase());
+    function aplicarFiltrosMultiplos(row, filtros) {
+      return filtros.every(filtro => {
+        const valores = filtro.valores || [];
+        if (!filtro.coluna || !valores.length) return true;
+        const valorLinha = String(row[filtro.coluna] ?? "").trim();
+        return valores.includes(valorLinha);
+      });
     }
 
     function calcularEscalaCompartilhada(pontosA, pontosB) {
@@ -700,34 +674,108 @@
             }
           },
           plugins: {
-            legend: { display: true },
+            legend: { display: false },
             title: { display: true, text: `${titulo} — ${subtitulo}` }
           }
         }
       });
     }
 
-    function preencherLimitesSerie(sufixo) {
+    function preencherSensoresSerie(sufixo) {
       const prefixo = document.getElementById(`${sufixo.toLowerCase()}Serie`).value;
       const colunasSerie = estadoComparador.seriesCols[prefixo] || [];
-      const selInicio = document.getElementById(`${sufixo.toLowerCase()}Start`);
-      const selFim = document.getElementById(`${sufixo.toLowerCase()}End`);
-      const valorInicioAtual = selInicio.value;
-      const valorFimAtual = selFim.value;
+      const selSensores = document.getElementById(`${sufixo.toLowerCase()}Sensors`);
+      const valoresAtuais = new Set(obterValoresSelecionados(selSensores.id));
+      selSensores.innerHTML = "";
 
-      [selInicio, selFim].forEach(sel => {
-        sel.innerHTML = "";
-        colunasSerie.forEach(col => {
-          const opt = document.createElement("option");
-          opt.value = col;
-          opt.textContent = col;
-          sel.appendChild(opt);
-        });
+      colunasSerie.forEach(col => {
+        const opt = document.createElement("option");
+        opt.value = col;
+        opt.textContent = col;
+        opt.selected = valoresAtuais.size ? valoresAtuais.has(col) : true;
+        selSensores.appendChild(opt);
       });
+    }
 
-      if (!colunasSerie.length) return;
-      selInicio.value = colunasSerie.includes(valorInicioAtual) ? valorInicioAtual : colunasSerie[0];
-      selFim.value = colunasSerie.includes(valorFimAtual) ? valorFimAtual : colunasSerie[colunasSerie.length - 1];
+    function detectarColunasFiltros(headers) {
+      return {
+        arquivo: encontrarCabecalhoPorAlias(headers, ["arquivo", "file"]),
+        acqui: encontrarCabecalhoPorAlias(headers, ["acqui", "#acqui", "aqui"]),
+        rev: encontrarCabecalhoPorAlias(headers, ["rev", "#rev", "revolucao", "revoluções"]),
+        airGap: encontrarCabecalhoPorAlias(headers, ["airgap", "air gap"]),
+        posY: encontrarCabecalhoPorAlias(headers, ["posicaoy", "posiçãoy", "y", "ypos", "pos y"]),
+        rpm: encontrarCabecalhoPorAlias(headers, ["rpm", "speed"])
+      };
+    }
+
+    function encontrarCabecalhoPorAlias(headers, aliases) {
+      return headers.find(h => {
+        const normalizado = normalizarCabecalho(h);
+        return aliases.some(alias => normalizado.includes(normalizarCabecalho(alias)));
+      }) || "";
+    }
+
+    function normalizarCabecalho(texto) {
+      return String(texto ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    function preencherCombosFiltros(sufixo) {
+      const baseId = sufixo.toLowerCase();
+      const mapa = [
+        { id: `${baseId}FiltroArquivo`, coluna: estadoComparador.filtroCols.arquivo },
+        { id: `${baseId}FiltroAcqui`, coluna: estadoComparador.filtroCols.acqui },
+        { id: `${baseId}FiltroRev`, coluna: estadoComparador.filtroCols.rev },
+        { id: `${baseId}FiltroAirGap`, coluna: estadoComparador.filtroCols.airGap },
+        { id: `${baseId}FiltroPosY`, coluna: estadoComparador.filtroCols.posY },
+        { id: `${baseId}FiltroRPM`, coluna: estadoComparador.filtroCols.rpm }
+      ];
+
+      mapa.forEach(item => preencherSelectValores(item.id, item.coluna));
+    }
+
+    function preencherSelectValores(selectId, coluna) {
+      const sel = document.getElementById(selectId);
+      const valoresAtuais = new Set(obterValoresSelecionados(selectId));
+      sel.innerHTML = "";
+
+      if (!coluna) {
+        sel.disabled = true;
+        return;
+      }
+
+      const valoresUnicos = [...new Set(estadoComparador.rows.map(r => String(r[coluna] ?? "").trim()).filter(v => v !== ""))]
+        .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" }));
+
+      valoresUnicos.forEach(valor => {
+        const opt = document.createElement("option");
+        opt.value = valor;
+        opt.textContent = valor;
+        opt.selected = valoresAtuais.size ? valoresAtuais.has(valor) : true;
+        sel.appendChild(opt);
+      });
+      sel.disabled = false;
+    }
+
+    function obterValoresSelecionados(selectId) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return [];
+      return [...sel.selectedOptions].map(o => o.value);
+    }
+
+    function montarFiltrosMultiplos(sufixo) {
+      const baseId = sufixo.toLowerCase();
+      return [
+        { coluna: estadoComparador.filtroCols.arquivo, valores: obterValoresSelecionados(`${baseId}FiltroArquivo`) },
+        { coluna: estadoComparador.filtroCols.acqui, valores: obterValoresSelecionados(`${baseId}FiltroAcqui`) },
+        { coluna: estadoComparador.filtroCols.rev, valores: obterValoresSelecionados(`${baseId}FiltroRev`) },
+        { coluna: estadoComparador.filtroCols.airGap, valores: obterValoresSelecionados(`${baseId}FiltroAirGap`) },
+        { coluna: estadoComparador.filtroCols.posY, valores: obterValoresSelecionados(`${baseId}FiltroPosY`) },
+        { coluna: estadoComparador.filtroCols.rpm, valores: obterValoresSelecionados(`${baseId}FiltroRPM`) }
+      ];
     }
 
     function extrairColunasSerie(headers, prefixo) {
