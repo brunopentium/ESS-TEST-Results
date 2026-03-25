@@ -866,11 +866,18 @@
         for (let c = 0; c < cabecalho.length; c++) {
           const valor = linhaOrigem?.[c] ?? "";
           if (colunasSerie.includes(c)) {
-            const letraColuna = XLSX.utils.encode_col(c);
-            const linhaAbaOriginal = r + 1;
-            novaLinha[c] = {
-              f: `'${nomeAbaOrigem}'!${letraColuna}${linhaAbaOriginal}-${letraColuna}$1`
-            };
+            const referencia = parseNumero(referencias[c]);
+            const valorNumerico = parseNumero(valor);
+
+            if (Number.isFinite(referencia) && Number.isFinite(valorNumerico)) {
+              novaLinha[c] = valorNumerico - referencia;
+            } else {
+              const letraColuna = XLSX.utils.encode_col(c);
+              const linhaAbaOriginal = r + 1;
+              novaLinha[c] = {
+                f: `'${nomeAbaOrigem}'!${letraColuna}${linhaAbaOriginal}-${letraColuna}$1`
+              };
+            }
           } else {
             novaLinha[c] = valor;
           }
