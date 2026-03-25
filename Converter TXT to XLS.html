@@ -195,7 +195,7 @@
       <div>
         <label>
           <input type="checkbox" id="chkIgnorarPerdaPulsos" style="width:auto; margin-right:6px" />
-          Ignorar perda de pulsos (crank FE59)
+          Ignorar perda de pulsos
         </label>
       </div>
       <div class="muted">Quando ativo, os dois gráficos usam a mesma escala com base nos dados dos dois cenários.</div>
@@ -824,7 +824,23 @@
         valoresEsperados.push(valorEsperadoBase - referenciaFe59);
       }
 
-      return valoresEsperados.some(v => numerosQuaseIguais(fe59, v, 0.02));
+      const fe59Valido = valoresEsperados.some(v => numerosQuaseIguais(fe59, v, 0.02));
+      if (!fe59Valido) return false;
+
+      const colunasFe1a58 = estadoComparador.headers.filter(h => {
+        const m = String(h ?? "").trim().match(/^fe\s*(\d+)$/i);
+        if (!m) return false;
+        const indice = Number(m[1]);
+        return Number.isInteger(indice) && indice >= 1 && indice <= 58;
+      });
+
+      const encontrouValorEsperadoForaFe59 = colunasFe1a58.some(coluna => {
+        const valor = parseNumero(row[coluna]);
+        if (!Number.isFinite(valor)) return false;
+        return valoresEsperados.some(v => numerosQuaseIguais(valor, v, 0.02));
+      });
+
+      return !encontrouValorEsperadoForaFe59;
     }
 
     function numerosQuaseIguais(a, b, tolerancia = 0.001) {
