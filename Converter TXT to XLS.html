@@ -1039,13 +1039,14 @@
     function extrairMetadadosArquivo(nomeArquivo) {
       const nome = String(nomeArquivo ?? "");
       const limpar = v => String(v ?? "").replace(/_/g, "").trim();
-      const airGap = nome.match(/(\d+[.,]\d+)\s*mm/i);
-      const posY = nome.match(/-(\d+[.,]\d+)\s*mm/i);
-      const rpm = nome.match(/(\d+[.,]\d+)\s*rpm/i);
+      const mmMatches = [...nome.matchAll(/([+-]?\d+(?:[.,]\d+)?)\s*mm/gi)].map(m => limpar(m[1]));
+      const rpm = nome.match(/(\d+(?:[.,]\d+)?)\s*rpm/i);
+      const airGap = mmMatches[0] ?? "";
+      const posY = mmMatches[1] ?? "";
 
       return {
-        airGap: airGap ? limpar(airGap[1]) : "",
-        posY: posY ? limpar(posY[1]) : "",
+        airGap,
+        posY,
         rpm: rpm ? limpar(rpm[1]) : ""
       };
     }
