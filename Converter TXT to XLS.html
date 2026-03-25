@@ -192,6 +192,12 @@
           Escala automática compartilhada entre os dois gráficos
         </label>
       </div>
+      <div>
+        <label>
+          <input type="checkbox" id="chkIgnorarPerdaPulsos" style="width:auto; margin-right:6px" />
+          Ignorar perda de pulsos (crank FE59)
+        </label>
+      </div>
       <div class="muted">Quando ativo, os dois gráficos usam a mesma escala com base nos dados dos dois cenários.</div>
     </div>
 
@@ -312,6 +318,7 @@
         FE: [],
         RE: []
       },
+      referencias: {},
       filtroCols: {
         arquivo: "",
         acqui: "",
@@ -327,6 +334,9 @@
     document.getElementById("btnAtualizar").addEventListener("click", atualizarGraficos);
     document.getElementById("chkAutoScale").addEventListener("change", () => {
       document.getElementById("manualScaleBox").style.display = document.getElementById("chkAutoScale").checked ? "none" : "grid";
+      if (estadoComparador.rows.length) atualizarGraficos();
+    });
+    document.getElementById("chkIgnorarPerdaPulsos").addEventListener("change", () => {
       if (estadoComparador.rows.length) atualizarGraficos();
     });
 
@@ -497,6 +507,7 @@
       }
 
       const headers = headerRow.map(h => String(h ?? "").trim());
+      const referencias = extrairReferenciasLinha(aoa, idxCabecalho, headers);
       const rows = dataRows
         .filter(r => r.some(v => String(v ?? "").trim() !== ""))
         .filter(r => !linhasSaoIguais(r, headerRow))
@@ -509,6 +520,7 @@
         });
 
       estadoComparador.headers = headers;
+      estadoComparador.referencias = referencias;
       estadoComparador.rows = rows;
 
       preencherSelects(headers);
@@ -563,7 +575,12 @@
 
       const filtros = montarFiltrosMultiplos(sufixo);
 
-      const linhasFiltradas = estadoComparador.rows.filter(row => aplicarFiltrosMultiplos(row, filtros));
+      const ignorarPerdaPulsos = document.getElementById("chkIgnorarPerdaPulsos").checked;
+      const linhasFiltradas = estadoComparador.rows.filter(row => {
+        if (!aplicarFiltrosMultiplos(row, filtros)) return false;
+        if (ignorarPerdaPulsos && !linhaValidaSemPerdaPulsos(row)) return false;
+        return true;
+      });
       const datasets = linhasFiltradas.map((linha, idx) => {
         const pontos = faixaColunas
           .map(col => ({
@@ -767,10 +784,51 @@
         arquivo: encontrarCabecalhoPorAlias(headers, ["arquivo", "file"]),
         acqui: encontrarCabecalhoPorAlias(headers, ["acqui", "#acqui", "aqui"]),
         rev: encontrarCabecalhoPorAlias(headers, ["rev", "#rev", "revolucao", "revoluções"]),
-        airGap: encontrarCabecalhoPorAlias(headers, ["airgap", "air gap"]),
+        airGap: encontrarCabecalhoPorAlias(headers, ["airgap", "air gap", "x axis", "xaxis", "x axis mm", "xaxismm"]),
         posY: encontrarCabecalhoPorAlias(headers, ["posicaoy", "posiçãoy", "y", "ypos", "pos y"]),
         rpm: encontrarCabecalhoPorAlias(headers, ["rpm", "speed"])
       };
+    }
+
+    function extrairReferenciasLinha(aoa, idxCabecalho, headers) {
+      const refs = {};
+      if (!Array.isArray(aoa) || idxCabecalho <= 0 || !Array.isArray(headers)) return refs;
+
+      const linhaAnterior = aoa[idxCabecalho - 1];
+      if (!Array.isArray(linhaAnterior)) return refs;
+
+      headers.forEach((header, i) => {
+        const valor = parseNumero(linhaAnterior[i]);
+        if (Number.isFinite(valor)) refs[header] = valor;
+      });
+
+      return refs;
+    }
+
+    function encontrarColunaFE59() {
+      return estadoComparador.headers.find(h => /^fe\s*59$/i.test(String(h ?? "").trim())) || "";
+    }
+
+    function linhaValidaSemPerdaPulsos(row) {
+      const colFe59 = encontrarColunaFE59();
+      if (!colFe59) return true;
+
+      const fe59 = parseNumero(row[colFe59]);
+      if (!Number.isFinite(fe59)) return false;
+
+      const valorEsperadoBase = 2359.26;
+      const referenciaFe59 = estadoComparador.referencias[colFe59];
+      const valoresEsperados = [valorEsperadoBase];
+
+      if (Number.isFinite(referenciaFe59)) {
+        valoresEsperados.push(valorEsperadoBase - referenciaFe59);
+      }
+
+      return valoresEsperados.some(v => numerosQuaseIguais(fe59, v, 0.02));
+    }
+
+    function numerosQuaseIguais(a, b, tolerancia = 0.001) {
+      return Math.abs(a - b) <= tolerancia;
     }
 
     function encontrarCabecalhoPorAlias(headers, aliases) {
