@@ -2,26 +2,268 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Conversor TXT → XLSX</title>
+  <title>Conversor TXT → XLSX + Comparador de Cenários</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      line-height: 1.35;
+    }
+
+    h2 {
+      margin-bottom: 8px;
+    }
+
+    .box {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 18px;
+      background: #fafafa;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    select,
+    input,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      font-size: 14px;
+    }
+
+    .btn {
+      cursor: pointer;
+      background: #1f6feb;
+      color: #fff;
+      border: none;
+      font-weight: 600;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .panel {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .panel h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .chart-wrap {
+      height: 340px;
+      margin-top: 12px;
+    }
+
+    .muted {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 980px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
-<body style="font-family:Arial; padding:24px">
-  <h2>Conversor Automático TXT → XLSX</h2>
-  <p>Selecione um ou mais arquivos TXT (separados por “;”):</p>
+<body>
+  <div class="box">
+    <h2>Conversor Automático TXT → XLSX</h2>
+    <p>Selecione um ou mais arquivos TXT (separados por “;”):</p>
 
-  <input type="file" id="files" accept=".txt" multiple />
-  <button id="btnConv">Converter</button>
+    <div class="grid">
+      <div>
+        <input type="file" id="files" accept=".txt" multiple />
+      </div>
+      <div>
+        <button id="btnConv" class="btn">Converter</button>
+      </div>
+    </div>
 
-  <div style="margin-top:12px;">
-    <label>
-      <input type="checkbox" id="chkUnificar" />
-      Gerar também um único arquivo Excel com todos os dados
-    </label>
+    <div style="margin-top:12px;">
+      <label>
+        <input type="checkbox" id="chkUnificar" style="width:auto; margin-right:6px" />
+        Gerar também um único arquivo Excel com todos os dados
+      </label>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>Comparador de Cenários a partir de Excel</h2>
+    <p>Carregue o arquivo Excel (ex.: <strong>resultado_unificado.xlsx</strong>) e compare dois cenários lado a lado.</p>
+
+    <div class="grid">
+      <div>
+        <label for="excelFile">Arquivo Excel</label>
+        <input type="file" id="excelFile" accept=".xlsx,.xls" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="btnAtualizar" class="btn" disabled>Atualizar gráficos</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div>
+        <label>
+          <input type="checkbox" id="chkAutoScale" checked style="width:auto; margin-right:6px" />
+          Escala automática compartilhada entre os dois gráficos
+        </label>
+      </div>
+      <div class="muted">Quando ativo, os dois gráficos usam a mesma escala com base nos dados dos dois cenários.</div>
+    </div>
+
+    <div id="manualScaleBox" class="grid" style="display:none; margin-top:8px;">
+      <div>
+        <label for="xMin">X mínimo (opcional)</label>
+        <input id="xMin" type="number" step="any" />
+      </div>
+      <div>
+        <label for="xMax">X máximo (opcional)</label>
+        <input id="xMax" type="number" step="any" />
+      </div>
+      <div>
+        <label for="yMin">Y mínimo (opcional)</label>
+        <input id="yMin" type="number" step="any" />
+      </div>
+      <div>
+        <label for="yMax">Y máximo (opcional)</label>
+        <input id="yMax" type="number" step="any" />
+      </div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="panel">
+        <h3>Cenário A</h3>
+        <div class="grid">
+          <div>
+            <label for="aX">Eixo X</label>
+            <select id="aX"></select>
+          </div>
+          <div>
+            <label for="aY">Eixo Y</label>
+            <select id="aY"></select>
+          </div>
+          <div>
+            <label for="aF1Col">Filtro 1 - coluna (ex.: RPM)</label>
+            <select id="aF1Col"></select>
+          </div>
+          <div>
+            <label for="aF1Val">Filtro 1 - valor</label>
+            <input id="aF1Val" placeholder="Ex.: 1800" />
+          </div>
+          <div>
+            <label for="aF2Col">Filtro 2 - coluna (ex.: Air Gap)</label>
+            <select id="aF2Col"></select>
+          </div>
+          <div>
+            <label for="aF2Val">Filtro 2 - valor</label>
+            <input id="aF2Val" placeholder="Ex.: 4" />
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartA"></canvas>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Cenário B</h3>
+        <div class="grid">
+          <div>
+            <label for="bX">Eixo X</label>
+            <select id="bX"></select>
+          </div>
+          <div>
+            <label for="bY">Eixo Y</label>
+            <select id="bY"></select>
+          </div>
+          <div>
+            <label for="bF1Col">Filtro 1 - coluna (ex.: RPM)</label>
+            <select id="bF1Col"></select>
+          </div>
+          <div>
+            <label for="bF1Val">Filtro 1 - valor</label>
+            <input id="bF1Val" placeholder="Ex.: 2200" />
+          </div>
+          <div>
+            <label for="bF2Col">Filtro 2 - coluna (ex.: Air Gap)</label>
+            <select id="bF2Col"></select>
+          </div>
+          <div>
+            <label for="bF2Val">Filtro 2 - valor</label>
+            <input id="bF2Val" placeholder="Ex.: 5" />
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartB"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
     document.getElementById("btnConv").addEventListener("click", processar);
+
+    const estadoComparador = {
+      headers: [],
+      rows: [],
+      chartA: null,
+      chartB: null
+    };
+
+    document.getElementById("excelFile").addEventListener("change", carregarExcelComparador);
+    document.getElementById("btnAtualizar").addEventListener("click", atualizarGraficos);
+    document.getElementById("chkAutoScale").addEventListener("change", () => {
+      document.getElementById("manualScaleBox").style.display = document.getElementById("chkAutoScale").checked ? "none" : "grid";
+      if (estadoComparador.rows.length) atualizarGraficos();
+    });
+
+    ["xMin", "xMax", "yMin", "yMax", "aF1Val", "aF2Val", "bF1Val", "bF2Val"].forEach(id => {
+      document.getElementById(id).addEventListener("input", () => {
+        if (estadoComparador.rows.length) atualizarGraficos();
+      });
+    });
+
+    ["aX", "aY", "aF1Col", "aF2Col", "bX", "bY", "bF1Col", "bF2Col"].forEach(id => {
+      document.getElementById(id).addEventListener("change", () => {
+        if (estadoComparador.rows.length) atualizarGraficos();
+      });
+    });
 
     async function processar() {
       const input = document.getElementById("files");
@@ -108,6 +350,226 @@
       } else {
         alert("Conversão concluída! Arquivos individuais gerados.");
       }
+    }
+
+    async function carregarExcelComparador(event) {
+      const arquivo = event.target.files?.[0];
+      if (!arquivo) return;
+
+      try {
+        const buffer = await arquivo.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+
+        const nomeAba = wb.SheetNames.find(n => !/^defasagem$/i.test(String(n).trim())) || wb.SheetNames[0];
+        const ws = wb.Sheets[nomeAba];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+
+        const idxCabecalho = encontrarLinhaCabecalho(aoa);
+        const headerRow = idxCabecalho >= 0 ? aoa[idxCabecalho] : aoa[0];
+        const dataRows = aoa.slice(idxCabecalho >= 0 ? idxCabecalho + 1 : 1);
+
+        if (!headerRow || !headerRow.length) {
+          alert("Não foi possível identificar cabeçalho válido no Excel.");
+          return;
+        }
+
+        const headers = headerRow.map(h => String(h ?? "").trim());
+        const rows = dataRows
+          .filter(r => r.some(v => String(v ?? "").trim() !== ""))
+          .filter(r => !linhasSaoIguais(r, headerRow))
+          .map((r, idx) => {
+            const obj = { _idx: idx };
+            headers.forEach((h, i) => {
+              obj[h] = r[i] ?? "";
+            });
+            return obj;
+          });
+
+        estadoComparador.headers = headers;
+        estadoComparador.rows = rows;
+
+        preencherSelects(headers);
+        document.getElementById("btnAtualizar").disabled = false;
+        atualizarGraficos();
+      } catch (err) {
+        alert(`Erro ao carregar Excel: ${err.message}`);
+      }
+    }
+
+    function preencherSelects(headers) {
+      const ids = ["aX", "aY", "aF1Col", "aF2Col", "bX", "bY", "bF1Col", "bF2Col"];
+
+      ids.forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = "";
+
+        const optVazio = document.createElement("option");
+        optVazio.value = "";
+        optVazio.textContent = "(sem filtro)";
+
+        headers.forEach(h => {
+          const opt = document.createElement("option");
+          opt.value = h;
+          opt.textContent = h;
+          sel.appendChild(opt);
+        });
+
+        if (id.endsWith("F1Col") || id.endsWith("F2Col")) {
+          sel.insertBefore(optVazio, sel.firstChild);
+        }
+      });
+
+      const sugestaoX = encontrarPorPadrao(headers, ["speed", "rpm", "#rev", "rev"]);
+      const sugestaoY = encontrarPorPadrao(headers, ["air gap", "air_gap", "fe1", "fe2", "fe3", "fe4"]);
+      document.getElementById("aX").value = sugestaoX || headers[0] || "";
+      document.getElementById("bX").value = sugestaoX || headers[0] || "";
+      document.getElementById("aY").value = sugestaoY || headers[1] || headers[0] || "";
+      document.getElementById("bY").value = sugestaoY || headers[1] || headers[0] || "";
+    }
+
+    function atualizarGraficos() {
+      const serieA = montarSerie("A");
+      const serieB = montarSerie("B");
+
+      const escala = calcularEscalaCompartilhada(serieA.pontos, serieB.pontos);
+      renderGrafico("chartA", "chartA", "Cenário A", serieA.pontos, serieA.xLabel, serieA.yLabel, "#1f77b4", escala);
+      renderGrafico("chartB", "chartB", "Cenário B", serieB.pontos, serieB.xLabel, serieB.yLabel, "#d62728", escala);
+    }
+
+    function montarSerie(sufixo) {
+      const xCol = document.getElementById(`${sufixo.toLowerCase()}X`).value;
+      const yCol = document.getElementById(`${sufixo.toLowerCase()}Y`).value;
+      const f1Col = document.getElementById(`${sufixo.toLowerCase()}F1Col`).value;
+      const f1Val = document.getElementById(`${sufixo.toLowerCase()}F1Val`).value;
+      const f2Col = document.getElementById(`${sufixo.toLowerCase()}F2Col`).value;
+      const f2Val = document.getElementById(`${sufixo.toLowerCase()}F2Val`).value;
+
+      const pontos = estadoComparador.rows
+        .filter(row => aplicarFiltro(row, f1Col, f1Val) && aplicarFiltro(row, f2Col, f2Val))
+        .map(row => ({
+          x: parseNumero(row[xCol]),
+          y: parseNumero(row[yCol])
+        }))
+        .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+        .sort((a, b) => a.x - b.x);
+
+      return { pontos, xLabel: xCol || "X", yLabel: yCol || "Y" };
+    }
+
+    function aplicarFiltro(row, coluna, valorFiltro) {
+      const valor = String(valorFiltro ?? "").trim();
+      if (!coluna || valor === "") return true;
+
+      const valorLinha = row[coluna];
+      const nFiltro = parseNumero(valor);
+      const nLinha = parseNumero(valorLinha);
+
+      if (Number.isFinite(nFiltro) && Number.isFinite(nLinha)) {
+        return Math.abs(nFiltro - nLinha) < 1e-9;
+      }
+
+      return String(valorLinha ?? "").toLowerCase().includes(valor.toLowerCase());
+    }
+
+    function calcularEscalaCompartilhada(pontosA, pontosB) {
+      const auto = document.getElementById("chkAutoScale").checked;
+      const todos = [...pontosA, ...pontosB];
+
+      if (!todos.length) return {};
+
+      if (!auto) {
+        return {
+          minX: tentarNumeroInput("xMin"),
+          maxX: tentarNumeroInput("xMax"),
+          minY: tentarNumeroInput("yMin"),
+          maxY: tentarNumeroInput("yMax")
+        };
+      }
+
+      const xs = todos.map(p => p.x);
+      const ys = todos.map(p => p.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      const padX = (maxX - minX || 1) * 0.05;
+      const padY = (maxY - minY || 1) * 0.05;
+
+      return {
+        minX: minX - padX,
+        maxX: maxX + padX,
+        minY: minY - padY,
+        maxY: maxY + padY
+      };
+    }
+
+    function renderGrafico(stateKey, canvasId, titulo, pontos, xLabel, yLabel, cor, escala) {
+      const chartAtual = estadoComparador[stateKey];
+      if (chartAtual) chartAtual.destroy();
+
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      estadoComparador[stateKey] = new Chart(ctx, {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: `${titulo} (${pontos.length} pontos)`,
+              data: pontos,
+              borderColor: cor,
+              backgroundColor: cor,
+              pointRadius: 2,
+              borderWidth: 2,
+              fill: false,
+              tension: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          parsing: false,
+          scales: {
+            x: {
+              type: "linear",
+              title: { display: true, text: xLabel },
+              min: escala.minX,
+              max: escala.maxX
+            },
+            y: {
+              type: "linear",
+              title: { display: true, text: yLabel },
+              min: escala.minY,
+              max: escala.maxY
+            }
+          },
+          plugins: {
+            legend: { display: true },
+            title: { display: true, text: titulo }
+          }
+        }
+      });
+    }
+
+    function encontrarPorPadrao(headers, padroes) {
+      for (const h of headers) {
+        const low = String(h).toLowerCase();
+        if (padroes.some(p => low.includes(p))) return h;
+      }
+      return "";
+    }
+
+    function parseNumero(v) {
+      const n = Number(normalizarNumero(String(v ?? "")));
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function tentarNumeroInput(id) {
+      const raw = document.getElementById(id).value;
+      if (String(raw).trim() === "") return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : undefined;
     }
 
     function encontrarLinhaCabecalho(dados) {
