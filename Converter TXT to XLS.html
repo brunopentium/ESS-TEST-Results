@@ -814,18 +814,7 @@
       if (!colFe59) return true;
 
       const fe59 = parseNumero(row[colFe59]);
-      if (!Number.isFinite(fe59)) return false;
-
-      const valorEsperadoBase = 2359.26;
-      const referenciaFe59 = estadoComparador.referencias[colFe59];
-      const valoresEsperados = [valorEsperadoBase];
-
-      if (Number.isFinite(referenciaFe59)) {
-        valoresEsperados.push(valorEsperadoBase - referenciaFe59);
-      }
-
-      const fe59Valido = valoresEsperados.some(v => numerosQuaseIguais(fe59, v, 0.02));
-      if (!fe59Valido) return false;
+      if (!Number.isFinite(fe59) || fe59 <= 400) return false;
 
       const colunasFe1a58 = estadoComparador.headers.filter(h => {
         const m = String(h ?? "").trim().match(/^fe\s*(\d+)$/i);
@@ -834,17 +823,13 @@
         return Number.isInteger(indice) && indice >= 1 && indice <= 58;
       });
 
-      const encontrouValorEsperadoForaFe59 = colunasFe1a58.some(coluna => {
+      const encontrouValorAcima400ForaFe59 = colunasFe1a58.some(coluna => {
         const valor = parseNumero(row[coluna]);
         if (!Number.isFinite(valor)) return false;
-        return valoresEsperados.some(v => numerosQuaseIguais(valor, v, 0.02));
+        return valor > 400;
       });
 
-      return !encontrouValorEsperadoForaFe59;
-    }
-
-    function numerosQuaseIguais(a, b, tolerancia = 0.001) {
-      return Math.abs(a - b) <= tolerancia;
+      return !encontrouValorAcima400ForaFe59;
     }
 
     function encontrarCabecalhoPorAlias(headers, aliases) {
