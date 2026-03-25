@@ -970,16 +970,27 @@
       if (s === "") return s;
 
       s = s.replace(/\s+/g, "");
-      const padraoUS = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/;
-      const padraoDecimal = /^-?\d+(\.\d+)?$/;
-      const padraoEU = /^-?\d{1,3}(\.\d{3})+(,\d+)?$/;
-      const padraoDecimalVirgula = /^-?\d+(,\d+)?$/;
       const padraoInt = /^-?\d+$/;
+      const padraoDecimalPonto = /^-?\d+\.\d+$/;
+      const padraoDecimalVirgula = /^-?\d+,\d+$/;
+      const padraoUS = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/;
+      const padraoEU = /^-?\d{1,3}(\.\d{3})+(,\d+)?$/;
 
-      if (padraoUS.test(s)) return s.replace(/,/g, "");
-      if (padraoEU.test(s)) return s.replace(/\./g, "").replace(",", ".");
+      if (padraoInt.test(s) || padraoDecimalPonto.test(s)) return s;
       if (padraoDecimalVirgula.test(s)) return s.replace(",", ".");
-      if (padraoDecimal.test(s) || padraoInt.test(s)) return s;
+
+      const qtPontos = (s.match(/\./g) || []).length;
+      const qtVirgulas = (s.match(/,/g) || []).length;
+
+      if (padraoUS.test(s)) {
+        const semVirgulas = s.replace(/,/g, "");
+        return qtVirgulas === 1 && qtPontos === 0 ? s.replace(",", ".") : semVirgulas;
+      }
+
+      if (padraoEU.test(s)) {
+        if (qtPontos === 1 && qtVirgulas === 0) return s;
+        return s.replace(/\./g, "").replace(",", ".");
+      }
 
       const ultimoPonto = s.lastIndexOf(".");
       const ultimaVirgula = s.lastIndexOf(",");
