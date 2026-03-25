@@ -729,15 +729,18 @@
     }
 
     function extrairColunasSerie(headers, prefixo) {
-      const regex = new RegExp(`^${prefixo}(\\d+)$`, "i");
+      const escapedPrefixo = String(prefixo ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`^${escapedPrefixo}\\s*([+-]?\\d+(?:[.,]\\d+)?)$`, "i");
       return headers
         .filter(h => regex.test(String(h ?? "").trim()))
         .sort((a, b) => extrairIndiceSerie(a) - extrairIndiceSerie(b));
     }
 
     function extrairIndiceSerie(valor) {
-      const m = String(valor ?? "").trim().match(/\d+$/);
-      return m ? Number(m[0]) : NaN;
+      const texto = String(valor ?? "").trim();
+      const m = texto.match(/[+-]?\d+(?:[.,]\d+)?$/);
+      if (!m) return NaN;
+      return Number(m[0].replace(",", "."));
     }
 
     function parseNumero(v) {
