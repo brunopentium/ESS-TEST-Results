@@ -135,6 +135,38 @@
   </div>
 
   <div class="box">
+    <h2>Configuração de Defasagem (referência angular)</h2>
+    <div class="inline-row">
+      <label for="sensorMode" style="margin:0;">Tipo de sensor:</label>
+      <select id="sensorMode" style="max-width:220px;">
+        <option value="crank">Crank Sensor</option>
+        <option value="cam">Camshaft Sensor</option>
+      </select>
+    </div>
+
+    <div id="crankConfig" class="grid">
+      <div>
+        <label for="crankFirstEdge">Ângulo da 1ª borda (°)</label>
+        <input id="crankFirstEdge" type="number" step="any" value="0" />
+      </div>
+      <div>
+        <label for="crankStep">Incremento por borda (°)</label>
+        <input id="crankStep" type="number" step="any" value="1" />
+      </div>
+    </div>
+
+    <div id="camConfig" style="display:none;">
+      <div class="grid">
+        <div>
+          <label for="camEdges">Número de bordas por roda (FE/RE)</label>
+          <input id="camEdges" type="number" min="1" max="12" value="4" />
+        </div>
+      </div>
+      <div id="camAnglesGrid" class="grid"></div>
+    </div>
+  </div>
+
+  <div class="box">
     <h2>Comparador de Cenários a partir de Excel</h2>
     <p>Carregue o arquivo Excel (ex.: <strong>resultado_unificado.xlsx</strong>) e compare dois cenários lado a lado.</p>
 
@@ -267,38 +299,6 @@
     </div>
   </div>
 
-  <div class="box">
-    <h2>Configuração de Defasagem (referência angular)</h2>
-    <div class="inline-row">
-      <label for="sensorMode" style="margin:0;">Tipo de sensor:</label>
-      <select id="sensorMode" style="max-width:220px;">
-        <option value="crank">Crank Sensor</option>
-        <option value="cam">Camshaft Sensor</option>
-      </select>
-    </div>
-
-    <div id="crankConfig" class="grid">
-      <div>
-        <label for="crankFirstEdge">Ângulo da 1ª borda (°)</label>
-        <input id="crankFirstEdge" type="number" step="any" value="0" />
-      </div>
-      <div>
-        <label for="crankStep">Incremento por borda (°)</label>
-        <input id="crankStep" type="number" step="any" value="1" />
-      </div>
-    </div>
-
-    <div id="camConfig" style="display:none;">
-      <div class="grid">
-        <div>
-          <label for="camEdges">Número de bordas por roda (FE/RE)</label>
-          <input id="camEdges" type="number" min="1" max="12" value="4" />
-        </div>
-      </div>
-      <div id="camAnglesGrid" class="grid"></div>
-    </div>
-  </div>
-
   <script>
     document.getElementById("btnConv").addEventListener("click", processar);
 
@@ -388,6 +388,7 @@
 
         if (unificar && dados.length > 0) {
           const nomeArquivo = file.name;
+          const metadadosArquivo = extrairMetadadosTexto(linhas, nomeArquivo);
           const idxCabecalho = encontrarLinhaCabecalho(dados);
           const cabecalhoAtual = idxCabecalho >= 0 ? dados[idxCabecalho] : dados[0];
           const cabecalhoComMeta = inserirMetadadosNoCabecalho(cabecalhoAtual);
@@ -402,7 +403,7 @@
 
           linhasDados.forEach(linha => {
             if (linhasSaoIguais(linha, cabecalhoAtual)) return;
-            dadosUnificados.push([nomeArquivo, ...inserirMetadadosNaLinha(linha, cabecalhoAtual, nomeArquivo)]);
+            dadosUnificados.push([nomeArquivo, ...inserirMetadadosNaLinha(linha, cabecalhoAtual, metadadosArquivo)]);
           });
         }
       }
@@ -1068,7 +1069,41 @@
       return "";
     }
 
-    function extrairMetadadosArquivo(nomeArquivo) {
+    function extrairMetadadosTexto(linhasArquivo, nomeArquivo = "") {
+      const linhas = Array.isArray(linhasArquivo) ? linhasArquivo : [];
+      const mapa = {};
+
+      linhas.forEach(linha => {
+        const partes = String(linha ?? "").split(";");
+        if (partes.length < 2) return;
+        const chave = normalizarCabecalho(partes[0]);
+        if (!chave || mapa[chave]) return;
+        mapa[chave] = String(partes.slice(1).join(";") ?? "").trim();
+      });
+
+      const airGapTxt = mapa["xaxismm"] ?? mapa["xaxis"] ?? "";
+      const posYTxt = mapa["yaxismm"] ?? mapa["yaxis"] ?? "";
+      const rpmTxt = mapa["targetwheelspeedrpm"] ?? mapa["targetwheelspeed"] ?? "";
+
+      const airGap = normalizarValorMetadata(airGapTxt);
+      const posY = normalizarValorMetadata(posYTxt);
+      const rpm = normalizarValorMetadata(rpmTxt);
+
+      if (airGap || posY || rpm) {
+        return { airGap, posY, rpm };
+      }
+
+      return extrairMetadadosArquivoDoNome(nomeArquivo);
+    }
+
+    function normalizarValorMetadata(valor) {
+      const texto = String(valor ?? "").trim();
+      if (!texto) return "";
+      const n = parseNumero(texto);
+      return Number.isFinite(n) ? String(n) : texto;
+    }
+
+    function extrairMetadadosArquivoDoNome(nomeArquivo) {
       const nome = String(nomeArquivo ?? "");
       const limpar = v => String(v ?? "").replace(/_/g, "").trim();
       const mmMatches = [...nome.matchAll(/([+-]?\d+(?:[.,]\d+)?)\s*mm/gi)].map(m => limpar(m[1]));
@@ -1090,9 +1125,9 @@
       return [...cabecalho.slice(0, idxRev + 1), ...extras, ...cabecalho.slice(idxRev + 1)];
     }
 
-    function inserirMetadadosNaLinha(linha, cabecalhoOriginal, nomeArquivo) {
+    function inserirMetadadosNaLinha(linha, cabecalhoOriginal, metadadosArquivo) {
       const idxRev = cabecalhoOriginal.findIndex(c => String(c ?? "").trim().toLowerCase() === "#rev");
-      const meta = extrairMetadadosArquivo(nomeArquivo);
+      const meta = metadadosArquivo || {};
       const extras = [meta.airGap, meta.posY, meta.rpm];
       if (idxRev < 0) return [...linha, ...extras];
       return [...linha.slice(0, idxRev + 1), ...extras, ...linha.slice(idxRev + 1)];
