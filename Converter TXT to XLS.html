@@ -606,12 +606,18 @@
         .replace(/\.[^.]+$/, "");
 
       const trechoComMm = nomeBase.match(/_M_(.+?_[+-]?\d+(?:[.,]\d+)?mm)(?:_|$)/i);
-      if (trechoComMm) return trechoComMm[1];
+      if (trechoComMm) return limparTituloGrafico(trechoComMm[1]);
 
       const trechoSemMm = nomeBase.match(/_M_(.+?)(?:_(?:[+-]?\d+(?:[.,]\d+)?)rpm|$)/i);
-      if (trechoSemMm) return trechoSemMm[1];
+      if (trechoSemMm) return limparTituloGrafico(trechoSemMm[1]);
 
-      return nomeBase;
+      return limparTituloGrafico(nomeBase);
+    }
+
+    function limparTituloGrafico(titulo) {
+      return String(titulo ?? "")
+        .replace(/_[+-]?\d+(?:[.,]\d+)?mm(?:_|$).*/i, "")
+        .trim();
     }
 
     function calcularEscalaCompartilhada(pontosA, pontosB) {
