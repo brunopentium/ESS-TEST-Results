@@ -201,22 +201,50 @@
       <div class="muted">Quando ativo, os dois gráficos usam a mesma escala com base nos dados dos dois cenários.</div>
     </div>
 
-    <div id="manualScaleBox" class="grid" style="display:none; margin-top:8px;">
-      <div>
-        <label for="xMin">X mínimo (opcional)</label>
-        <input id="xMin" type="number" step="any" />
-      </div>
-      <div>
-        <label for="xMax">X máximo (opcional)</label>
-        <input id="xMax" type="number" step="any" />
-      </div>
-      <div>
-        <label for="yMin">Y mínimo (opcional)</label>
-        <input id="yMin" type="number" step="any" />
-      </div>
-      <div>
-        <label for="yMax">Y máximo (opcional)</label>
-        <input id="yMax" type="number" step="any" />
+    <div id="manualScaleBox" style="display:none; margin-top:8px;">
+      <div class="compare-grid">
+        <div class="panel">
+          <h3>Escala manual - Cenário A</h3>
+          <div class="grid">
+            <div>
+              <label for="aXMin">X mínimo (opcional)</label>
+              <input id="aXMin" type="number" step="any" />
+            </div>
+            <div>
+              <label for="aXMax">X máximo (opcional)</label>
+              <input id="aXMax" type="number" step="any" />
+            </div>
+            <div>
+              <label for="aYMin">Y mínimo (opcional)</label>
+              <input id="aYMin" type="number" step="any" />
+            </div>
+            <div>
+              <label for="aYMax">Y máximo (opcional)</label>
+              <input id="aYMax" type="number" step="any" />
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Escala manual - Cenário B</h3>
+          <div class="grid">
+            <div>
+              <label for="bXMin">X mínimo (opcional)</label>
+              <input id="bXMin" type="number" step="any" />
+            </div>
+            <div>
+              <label for="bXMax">X máximo (opcional)</label>
+              <input id="bXMax" type="number" step="any" />
+            </div>
+            <div>
+              <label for="bYMin">Y mínimo (opcional)</label>
+              <input id="bYMin" type="number" step="any" />
+            </div>
+            <div>
+              <label for="bYMax">Y máximo (opcional)</label>
+              <input id="bYMax" type="number" step="any" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -340,7 +368,7 @@
       if (estadoComparador.rows.length) atualizarGraficos();
     });
 
-    ["xMin", "xMax", "yMin", "yMax"].forEach(id => {
+    ["aXMin", "aXMax", "aYMin", "aYMax", "bXMin", "bXMax", "bYMin", "bYMax"].forEach(id => {
       document.getElementById(id).addEventListener("input", () => {
         if (estadoComparador.rows.length) atualizarGraficos();
       });
@@ -558,9 +586,21 @@
       const serieA = montarSerie("A");
       const serieB = montarSerie("B");
 
-      const escala = calcularEscalaCompartilhada(serieA.pontosTodos, serieB.pontosTodos);
-      renderGrafico("chartA", "chartA", "Cenário A", serieA, "#1f77b4", escala);
-      renderGrafico("chartB", "chartB", "Cenário B", serieB, "#d62728", escala);
+      const auto = document.getElementById("chkAutoScale").checked;
+      let escalaA = {};
+      let escalaB = {};
+
+      if (auto) {
+        const escalaCompartilhada = calcularEscalaAutomaticaCompartilhada(serieA.pontosTodos, serieB.pontosTodos);
+        escalaA = escalaCompartilhada;
+        escalaB = escalaCompartilhada;
+      } else {
+        escalaA = calcularEscalaManualPorCenario("A");
+        escalaB = calcularEscalaManualPorCenario("B");
+      }
+
+      renderGrafico("chartA", "chartA", "Cenário A", serieA, "#1f77b4", escalaA);
+      renderGrafico("chartB", "chartB", "Cenário B", serieB, "#d62728", escalaB);
     }
 
     function montarSerie(sufixo) {
@@ -648,20 +688,10 @@
         .trim();
     }
 
-    function calcularEscalaCompartilhada(pontosA, pontosB) {
-      const auto = document.getElementById("chkAutoScale").checked;
+    function calcularEscalaAutomaticaCompartilhada(pontosA, pontosB) {
       const todos = [...pontosA, ...pontosB];
 
       if (!todos.length) return {};
-
-      if (!auto) {
-        return {
-          minX: tentarNumeroInput("xMin"),
-          maxX: tentarNumeroInput("xMax"),
-          minY: tentarNumeroInput("yMin"),
-          maxY: tentarNumeroInput("yMax")
-        };
-      }
 
       const limites = calcularLimitesPontos(todos);
       if (!limites) return {};
@@ -675,6 +705,16 @@
         maxX: maxX + padX,
         minY: minY - padY,
         maxY: maxY + padY
+      };
+    }
+
+    function calcularEscalaManualPorCenario(sufixo) {
+      const base = sufixo.toLowerCase();
+      return {
+        minX: tentarNumeroInput(`${base}XMin`),
+        maxX: tentarNumeroInput(`${base}XMax`),
+        minY: tentarNumeroInput(`${base}YMin`),
+        maxY: tentarNumeroInput(`${base}YMax`)
       };
     }
 
