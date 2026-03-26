@@ -901,7 +901,11 @@
               min: escala.minX,
               max: escala.maxX,
               ticks: {
-                callback: value => serie.prefixoSerie ? `${serie.prefixoSerie}${value}` : value
+                stepSize: 1,
+                callback: value => {
+                  if (!Number.isInteger(value)) return "";
+                  return serie.prefixoSerie ? `${serie.prefixoSerie}${value}` : value;
+                }
               }
             },
             y: {
