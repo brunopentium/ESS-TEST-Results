@@ -147,11 +147,11 @@
     <div id="crankConfig" class="grid">
       <div>
         <label for="crankFirstEdge">Ângulo da 1ª borda (°)</label>
-        <input id="crankFirstEdge" type="number" step="any" value="0" />
+        <input id="crankFirstEdge" type="number" step="any" value="9" />
       </div>
       <div>
         <label for="crankStep">Incremento por borda (°)</label>
-        <input id="crankStep" type="number" step="any" value="1" />
+        <input id="crankStep" type="number" step="any" value="6" />
       </div>
     </div>
 
@@ -449,6 +449,9 @@
           }
 
           XLSX.writeFile(wbUnificado, "resultado_unificado.xlsx");
+          estadoComparador.workbook = wbUnificado;
+          popularSelectAbas(wbUnificado);
+          carregarAbaComparadorSelecionada();
 
           alert("Conversão concluída! Arquivos individuais e unificado gerados.");
         } else {
@@ -707,7 +710,7 @@
       const chartAtual = estadoComparador[stateKey];
       if (chartAtual) chartAtual.destroy();
 
-      const datasets = (serie.datasets || []).map((d, idx) => ({
+      const datasets = (serie.datasets || []).map(d => ({
         label: d.label,
         data: d.data,
         borderColor: cor,
@@ -715,7 +718,7 @@
         pointRadius: 0,
         pointHoverRadius: 0,
         borderWidth: 1.8,
-        borderDash: idx === 0 ? [] : [4, 3],
+        borderDash: [],
         fill: false,
         tension: 0
       }));
@@ -904,7 +907,12 @@
       const escapedPrefixo = String(prefixo ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(`^${escapedPrefixo}\\s*([+-]?\\d+(?:[.,]\\d+)?)$`, "i");
       return headers
-        .filter(h => regex.test(String(h ?? "").trim()))
+        .filter(h => {
+          const texto = String(h ?? "").trim();
+          if (!regex.test(texto)) return false;
+          if (/^fe\s*59$/i.test(texto)) return false;
+          return true;
+        })
         .sort((a, b) => extrairIndiceSerie(a) - extrairIndiceSerie(b));
     }
 
