@@ -5,6 +5,8 @@
   <title>Conversor TXT → XLSX + Comparador de Cenários</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -331,6 +333,10 @@
         </div>
       </div>
     </div>
+
+    <div style="margin-top:14px;">
+      <button id="btnExportComparador" class="btn" disabled>Exportar planilha com extratificação + gráficos</button>
+    </div>
   </div>
 
   <script>
@@ -360,6 +366,7 @@
     document.getElementById("excelFile").addEventListener("change", carregarExcelComparador);
     document.getElementById("sheetSelect").addEventListener("change", carregarAbaComparadorSelecionada);
     document.getElementById("btnAtualizar").addEventListener("click", atualizarGraficos);
+    document.getElementById("btnExportComparador").addEventListener("click", exportarComparadorComGraficos);
     document.getElementById("chkAutoScale").addEventListener("change", () => {
       document.getElementById("manualScaleBox").style.display = document.getElementById("chkAutoScale").checked ? "none" : "grid";
       if (estadoComparador.rows.length) atualizarGraficos();
@@ -556,6 +563,7 @@
 
       preencherSelects(headers);
       document.getElementById("btnAtualizar").disabled = false;
+      document.getElementById("btnExportComparador").disabled = false;
       atualizarGraficos();
     }
 
@@ -1357,6 +1365,98 @@
       if (arquivo) return arquivo;
       if (rev) return `#Rev ${rev}`;
       return `Linha ${idx + 1}`;
+    }
+
+    async function exportarComparadorComGraficos() {
+      if (!estadoComparador.workbook) {
+        alert("Carregue um arquivo Excel antes de exportar.");
+        return;
+      }
+
+      const btn = document.getElementById("btnExportComparador");
+      const textoOriginal = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Exportando...";
+
+      try {
+        const wbExport = new ExcelJS.Workbook();
+        copiarAbasBaseParaWorkbookExcelJS(wbExport);
+
+        const serieA = montarSerie("A");
+        const serieB = montarSerie("B");
+        const auto = document.getElementById("chkAutoScale").checked;
+        const escalaCompartilhada = auto ? calcularEscalaAutomaticaCompartilhada(serieA.pontosTodos, serieB.pontosTodos) : null;
+
+        await adicionarAbaCenarioComGrafico(wbExport, "Extratificação Cenário A", "A", serieA, "chartA", auto ? escalaCompartilhada : calcularEscalaManualPorCenario("A"));
+        await adicionarAbaCenarioComGrafico(wbExport, "Extratificação Cenário B", "B", serieB, "chartB", auto ? escalaCompartilhada : calcularEscalaManualPorCenario("B"));
+
+        const buffer = await wbExport.xlsx.writeBuffer();
+        saveAs(
+          new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+          "resultado_unificado_com_extratificacao.xlsx"
+        );
+      } catch (err) {
+        alert(`Erro ao exportar planilha: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    }
+
+    function copiarAbasBaseParaWorkbookExcelJS(wbExport) {
+      const nomesPreferidos = ["Unificado", "DEFASAGEM"];
+      const nomesSelecionados = nomesPreferidos.filter(nome => estadoComparador.workbook.Sheets[nome]);
+
+      if (!nomesSelecionados.length) {
+        nomesSelecionados.push(...estadoComparador.workbook.SheetNames.slice(0, 2));
+      }
+
+      nomesSelecionados.forEach(nome => {
+        const wsOrigem = estadoComparador.workbook.Sheets[nome];
+        if (!wsOrigem) return;
+        const aoa = XLSX.utils.sheet_to_json(wsOrigem, { header: 1, raw: true, defval: "" });
+        const wsDestino = wbExport.addWorksheet(nome.substring(0, 31));
+        aoa.forEach(linha => wsDestino.addRow(linha));
+      });
+    }
+
+    async function adicionarAbaCenarioComGrafico(wbExport, nomeAba, sufixo, serie, canvasId, escala) {
+      const ws = wbExport.addWorksheet(nomeAba.substring(0, 31));
+      const filtros = montarFiltrosMultiplos(sufixo);
+      const titulo = serie.tituloArquivo || nomeAba;
+
+      ws.addRow(["Título do gráfico", titulo]);
+      ws.addRow(["Série eixo X", serie.prefixoSerie || ""]);
+      ws.addRow(["Linhas filtradas", serie.linhasFiltradas]);
+      ws.addRow(["Escala X", `${valorEscalaTexto(escala?.minX)} até ${valorEscalaTexto(escala?.maxX)}`]);
+      ws.addRow(["Escala Y", `${valorEscalaTexto(escala?.minY)} até ${valorEscalaTexto(escala?.maxY)}`]);
+      ws.addRow([]);
+      ws.addRow(["Filtros aplicados"]);
+      filtros.forEach(filtro => {
+        const textoValores = (filtro.valores || []).length ? filtro.valores.join(", ") : "(todos)";
+        ws.addRow([filtro.coluna || "(coluna não encontrada)", textoValores]);
+      });
+      ws.addRow([]);
+      ws.addRow(["Curva", "X", "Y"]);
+
+      (serie.datasets || []).forEach(dataset => {
+        (dataset.data || []).forEach(ponto => ws.addRow([dataset.label, ponto.x, ponto.y]));
+      });
+
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+
+      const base64 = canvas.toDataURL("image/png");
+      const imageId = wbExport.addImage({ base64, extension: "png" });
+      const linhaImagem = Math.max(ws.rowCount + 2, 35);
+      ws.addImage(imageId, {
+        tl: { col: 0, row: linhaImagem },
+        ext: { width: 960, height: 380 }
+      });
+    }
+
+    function valorEscalaTexto(valor) {
+      return Number.isFinite(valor) ? String(valor) : "auto";
     }
   </script>
 </body>
