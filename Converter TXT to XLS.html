@@ -655,6 +655,7 @@
         yLabel: "Ângulo (°)",
         prefixoSerie: seriePrefixo,
         linhasFiltradas: linhasFiltradas.length,
+        linhasFiltradasDados: linhasFiltradas,
         tituloArquivo: extrairTituloGraficoDeArquivo(linhasFiltradas)
       };
     }
@@ -1387,8 +1388,8 @@
         const auto = document.getElementById("chkAutoScale").checked;
         const escalaCompartilhada = auto ? calcularEscalaAutomaticaCompartilhada(serieA.pontosTodos, serieB.pontosTodos) : null;
 
-        await adicionarAbaCenarioComGrafico(wbExport, "Extratificação Cenário A", "A", serieA, "chartA", auto ? escalaCompartilhada : calcularEscalaManualPorCenario("A"));
-        await adicionarAbaCenarioComGrafico(wbExport, "Extratificação Cenário B", "B", serieB, "chartB", auto ? escalaCompartilhada : calcularEscalaManualPorCenario("B"));
+        await adicionarAbaCenarioComGrafico(wbExport, "A", serieA, auto ? escalaCompartilhada : calcularEscalaManualPorCenario("A"));
+        await adicionarAbaCenarioComGrafico(wbExport, "B", serieB, auto ? escalaCompartilhada : calcularEscalaManualPorCenario("B"));
 
         const buffer = await wbExport.xlsx.writeBuffer();
         saveAs(
@@ -1420,39 +1421,65 @@
       });
     }
 
-    async function adicionarAbaCenarioComGrafico(wbExport, nomeAba, sufixo, serie, canvasId, escala) {
-      const ws = wbExport.addWorksheet(nomeAba.substring(0, 31));
-      const filtros = montarFiltrosMultiplos(sufixo);
-      const titulo = serie.tituloArquivo || nomeAba;
+    async function adicionarAbaCenarioComGrafico(wbExport, sufixo, serie, escala) {
+      const tituloGrafico = serie.tituloArquivo || `Cenário ${sufixo}`;
+      const nomeAba = construirNomeAbaGrafico(wbExport, tituloGrafico, sufixo);
+      const ws = wbExport.addWorksheet(nomeAba);
+      const cabecalho = [...(estadoComparador.headers || [])];
+      const linhasFiltradas = Array.isArray(serie.linhasFiltradasDados) ? serie.linhasFiltradasDados : [];
 
-      ws.addRow(["Título do gráfico", titulo]);
-      ws.addRow(["Série eixo X", serie.prefixoSerie || ""]);
+      const linhaReferencia = cabecalho.map(() => "");
+      const colunasSerieSelecionadas = (estadoComparador.seriesCols[serie.prefixoSerie] || [])
+        .filter(coluna => cabecalho.includes(coluna));
+
+      if (colunasSerieSelecionadas.length) {
+        const idxPrimeiraColunaSerie = cabecalho.findIndex(col => col === colunasSerieSelecionadas[0]);
+        const idxColunaTitulo = idxPrimeiraColunaSerie > 0 ? idxPrimeiraColunaSerie - 1 : 0;
+        linhaReferencia[idxColunaTitulo] = "REFERENCY";
+      }
+
+      colunasSerieSelecionadas.forEach(coluna => {
+        const idxColuna = cabecalho.indexOf(coluna);
+        if (idxColuna < 0) return;
+        const ref = estadoComparador.referencias[coluna];
+        linhaReferencia[idxColuna] = Number.isFinite(ref) ? ref : "";
+      });
+
+      ws.addRow(linhaReferencia);
+      ws.addRow(cabecalho);
+
+      linhasFiltradas.forEach(row => {
+        const linha = cabecalho.map(coluna => row[coluna] ?? "");
+        ws.addRow(linha);
+      });
+
+      ws.addRow([]);
+      ws.addRow(["Título do gráfico", tituloGrafico]);
       ws.addRow(["Linhas filtradas", serie.linhasFiltradas]);
       ws.addRow(["Escala X", `${valorEscalaTexto(escala?.minX)} até ${valorEscalaTexto(escala?.maxX)}`]);
       ws.addRow(["Escala Y", `${valorEscalaTexto(escala?.minY)} até ${valorEscalaTexto(escala?.maxY)}`]);
-      ws.addRow([]);
-      ws.addRow(["Filtros aplicados"]);
-      filtros.forEach(filtro => {
-        const textoValores = (filtro.valores || []).length ? filtro.valores.join(", ") : "(todos)";
-        ws.addRow([filtro.coluna || "(coluna não encontrada)", textoValores]);
-      });
-      ws.addRow([]);
-      ws.addRow(["Curva", "X", "Y"]);
+      ws.addRow(["Observação", "O arquivo exporta os dados em formato nativo para criação/edição do gráfico diretamente no Excel."]);
+    }
 
-      (serie.datasets || []).forEach(dataset => {
-        (dataset.data || []).forEach(ponto => ws.addRow([dataset.label, ponto.x, ponto.y]));
-      });
+    function construirNomeAbaGrafico(wbExport, tituloGrafico, sufixo) {
+      const base = String(tituloGrafico ?? "")
+        .replace(/[\\/*?:[\]]/g, " ")
+        .trim() || `Cenário ${sufixo}`;
+      const limite = 31;
+      const nomesExistentes = new Set((wbExport.worksheets || []).map(ws => ws.name));
+      let nome = base.substring(0, limite);
 
-      const canvas = document.getElementById(canvasId);
-      if (!canvas) return;
+      if (!nomesExistentes.has(nome)) return nome;
 
-      const base64 = canvas.toDataURL("image/png");
-      const imageId = wbExport.addImage({ base64, extension: "png" });
-      const linhaImagem = Math.max(ws.rowCount + 2, 35);
-      ws.addImage(imageId, {
-        tl: { col: 0, row: linhaImagem },
-        ext: { width: 960, height: 380 }
-      });
+      let contador = 2;
+      while (contador < 1000) {
+        const sufixoContador = ` (${contador})`;
+        const nomeTentativa = base.substring(0, limite - sufixoContador.length) + sufixoContador;
+        if (!nomesExistentes.has(nomeTentativa)) return nomeTentativa;
+        contador++;
+      }
+
+      return `Cenário ${sufixo}`.substring(0, limite);
     }
 
     function valorEscalaTexto(valor) {
