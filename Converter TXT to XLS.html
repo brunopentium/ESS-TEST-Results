@@ -707,9 +707,6 @@
       const chartAtual = estadoComparador[stateKey];
       if (chartAtual) chartAtual.destroy();
 
-      const subtitulo = serie.linhasFiltradas === 1
-        ? "1 linha encontrada"
-        : `${serie.linhasFiltradas} linhas encontradas`;
       const datasets = (serie.datasets || []).map((d, idx) => ({
         label: d.label,
         data: d.data,
@@ -756,7 +753,7 @@
             legend: { display: false },
             title: {
               display: true,
-              text: `${serie.tituloArquivo || titulo} — ${subtitulo}`
+              text: `${serie.tituloArquivo || titulo}`
             }
           }
         }
