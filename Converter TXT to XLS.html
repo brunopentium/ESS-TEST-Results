@@ -70,35 +70,15 @@
     }
 
     .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 10px;
+      margin-bottom: 0;
       position: relative;
       z-index: 1;
     }
 
-    .brand-mark {
-      width: 46px;
-      height: 32px;
-      border-radius: 18px 8px 18px 8px;
-      background: linear-gradient(140deg, #fff 10%, #ffe2d8 90%);
-      transform: skewX(-12deg) rotate(-8deg);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: clamp(1.4rem, 2.8vw, 2rem);
-      letter-spacing: 0.04em;
-    }
-
-    .hero p {
-      position: relative;
-      z-index: 1;
-      margin: 0;
-      opacity: 0.94;
-      max-width: 760px;
+    .brand-logo {
+      display: block;
+      width: min(280px, 100%);
+      height: auto;
     }
 
     h2 {
@@ -225,10 +205,8 @@
   <div class="app-shell">
   <header class="hero">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <h1>AUMOVIO</h1>
+      <img class="brand-logo" src="./aumovio-logo.svg" alt="AUMOVIO" />
     </div>
-    <p>Nova interface com visual moderno, inspirado no logo e na paleta oficial, totalmente responsiva para fluxo de análise e comparação de cenários.</p>
   </header>
 
   <div class="box">
