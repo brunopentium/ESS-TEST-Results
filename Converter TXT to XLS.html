@@ -70,15 +70,29 @@
     }
 
     .brand {
-      margin-bottom: 0;
+      margin: 0;
       position: relative;
       z-index: 1;
+      min-height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
     }
 
-    .brand-logo {
-      display: block;
-      width: min(280px, 100%);
-      height: auto;
+    .hero-title {
+      margin: 0;
+      color: #ffffff;
+      font-size: clamp(2.1rem, 4vw, 3.3rem);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      -webkit-text-stroke: 1.5px #8d96a8;
+      text-shadow:
+        1px 0 0 #8d96a8,
+        -1px 0 0 #8d96a8,
+        0 1px 0 #8d96a8,
+        0 -1px 0 #8d96a8;
     }
 
     h2 {
@@ -204,17 +218,8 @@
 <body>
   <div class="app-shell">
   <header class="hero">
-    <div class="brand" aria-label="AUMOVIO">
-      <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-labelledby="logoTitle logoDesc">
-        <title id="logoTitle">AUMOVIO logo</title>
-        <desc id="logoDesc">Logotipo AUMOVIO com símbolo laranja e texto preto.</desc>
-        <rect width="560" height="120" fill="white"></rect>
-        <g transform="translate(20 18)" fill="#ff4c0a">
-          <path d="M0 56C10 40 19 23 33 4c2-3 8-3 10 1l8 14c2 3 1 6-1 9-10 11-18 23-31 31-8 5-24 2-19-9z"></path>
-          <path d="M53 24c5-4 12-4 16 1l19 26c4 6 2 14-4 17-10 5-21 3-28-5l-8-10c-4-4-4-10 0-14z"></path>
-        </g>
-        <text x="182" y="78" fill="#000000" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="68" letter-spacing="1">AUMOVIO</text>
-      </svg>
+    <div class="brand" aria-label="ESS Test Bench Results">
+      <h1 class="hero-title">ESS Test Bench Results</h1>
     </div>
   </header>
 
