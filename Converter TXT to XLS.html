@@ -1298,7 +1298,7 @@
 
       colunasSerie.forEach(c => {
         const nome = String(cabecalho[c] ?? "").trim().toUpperCase();
-        const ref = mapa[nome];
+        const ref = parseNumero(mapa[nome]);
         if (Number.isFinite(ref)) refs[c] = ref;
       });
       return refs;
