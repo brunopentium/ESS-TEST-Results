@@ -183,6 +183,25 @@
       margin-top: 12px;
     }
 
+    .chart-title-editable {
+      margin: 10px 0 4px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      border: 1px dashed transparent;
+      border-radius: 8px;
+      padding: 6px 8px;
+      transition: border-color .2s, background-color .2s;
+      cursor: text;
+    }
+
+    .chart-title-editable:hover,
+    .chart-title-editable:focus {
+      border-color: rgba(95, 43, 191, 0.35);
+      background-color: rgba(95, 43, 191, 0.06);
+      outline: none;
+    }
+
     .muted {
       font-size: 12px;
       color: var(--text-soft);
@@ -367,7 +386,7 @@
             <select id="aSerie"></select>
           </div>
           <div>
-            <label for="aSensors">Sensores para plotar (Ctrl/Cmd + clique)</label>
+            <label for="aSensors">Bordas para plotar (Ctrl/Cmd + clique)</label>
             <select id="aSensors" multiple size="6"></select>
           </div>
           <div>
@@ -395,6 +414,7 @@
             <select id="aFiltroRPM" multiple size="6"></select>
           </div>
         </div>
+        <div id="chartTitleA" class="chart-title-editable" contenteditable="true" spellcheck="false">Cenário A</div>
         <div class="chart-wrap">
           <canvas id="chartA"></canvas>
         </div>
@@ -408,7 +428,7 @@
             <select id="bSerie"></select>
           </div>
           <div>
-            <label for="bSensors">Sensores para plotar (Ctrl/Cmd + clique)</label>
+            <label for="bSensors">Bordas para plotar (Ctrl/Cmd + clique)</label>
             <select id="bSensors" multiple size="6"></select>
           </div>
           <div>
@@ -436,6 +456,7 @@
             <select id="bFiltroRPM" multiple size="6"></select>
           </div>
         </div>
+        <div id="chartTitleB" class="chart-title-editable" contenteditable="true" spellcheck="false">Cenário B</div>
         <div class="chart-wrap">
           <canvas id="chartB"></canvas>
         </div>
@@ -462,6 +483,10 @@
         RE: []
       },
       referencias: {},
+      titulosCustomizados: {
+        A: { texto: "Cenário A", manual: false },
+        B: { texto: "Cenário B", manual: false }
+      },
       filtroCols: {
         arquivo: "",
         acqui: "",
@@ -502,6 +527,17 @@
 
     document.getElementById("sensorMode").addEventListener("change", atualizarCamposSensor);
     document.getElementById("camEdges").addEventListener("input", renderCamposCamshaft);
+    ["A", "B"].forEach(sufixo => {
+      const elTitulo = document.getElementById(`chartTitle${sufixo}`);
+      elTitulo.addEventListener("input", () => {
+        const texto = String(elTitulo.textContent ?? "").trim();
+        estadoComparador.titulosCustomizados[sufixo] = {
+          texto: texto || `Cenário ${sufixo}`,
+          manual: true
+        };
+        if (estadoComparador.rows.length) atualizarGraficos();
+      });
+    });
     atualizarCamposSensor();
     renderCamposCamshaft();
 
@@ -703,6 +739,9 @@
       const serieA = montarSerie("A");
       const serieB = montarSerie("B");
 
+      sincronizarTituloEditavel("A", serieA.tituloArquivo || "Cenário A");
+      sincronizarTituloEditavel("B", serieB.tituloArquivo || "Cenário B");
+
       const auto = document.getElementById("chkAutoScale").checked;
       let escalaA = {};
       let escalaB = {};
@@ -718,6 +757,26 @@
 
       renderGrafico("chartA", "chartA", "Cenário A", serieA, "#1f77b4", escalaA);
       renderGrafico("chartB", "chartB", "Cenário B", serieB, "#d62728", escalaB);
+    }
+
+    function sincronizarTituloEditavel(sufixo, sugestao) {
+      const elTitulo = document.getElementById(`chartTitle${sufixo}`);
+      if (!elTitulo) return;
+
+      const tituloAtual = estadoComparador.titulosCustomizados[sufixo] || { texto: "", manual: false };
+      const textoNormalizado = String(tituloAtual.texto ?? "").trim();
+      const sugestaoNormalizada = String(sugestao ?? "").trim() || `Cenário ${sufixo}`;
+
+      if (tituloAtual.manual && textoNormalizado) {
+        if (elTitulo.textContent !== textoNormalizado) elTitulo.textContent = textoNormalizado;
+        return;
+      }
+
+      estadoComparador.titulosCustomizados[sufixo] = {
+        texto: sugestaoNormalizada,
+        manual: false
+      };
+      if (elTitulo.textContent !== sugestaoNormalizada) elTitulo.textContent = sugestaoNormalizada;
     }
 
     function montarSerie(sufixo) {
@@ -874,6 +933,7 @@
     function renderGrafico(stateKey, canvasId, titulo, serie, cor, escala) {
       const chartAtual = estadoComparador[stateKey];
       if (chartAtual) chartAtual.destroy();
+      const sufixoTitulo = stateKey === "chartA" ? "A" : "B";
       const ticksInteiros = obterTicksInteirosSerie(serie);
       const minTick = ticksInteiros[0];
       const maxTick = ticksInteiros[ticksInteiros.length - 1];
@@ -933,7 +993,7 @@
             legend: { display: false },
             title: {
               display: true,
-              text: `${serie.tituloArquivo || titulo}`
+              text: `${estadoComparador.titulosCustomizados[sufixoTitulo]?.texto || serie.tituloArquivo || titulo}`
             }
           }
         }
