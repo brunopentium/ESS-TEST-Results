@@ -815,15 +815,22 @@
       if (!limites) return {};
       const { minX, maxX, minY, maxY } = limites;
 
-      const padX = (maxX - minX || 1) * 0.05;
       const padY = (maxY - minY || 1) * 0.05;
 
       return {
-        minX: minX - padX,
-        maxX: maxX + padX,
+        minX,
+        maxX,
         minY: minY - padY,
         maxY: maxY + padY
       };
+    }
+
+    function obterTicksInteirosSerie(serie) {
+      const valores = (serie?.pontosTodos || [])
+        .map(p => p?.x)
+        .filter(v => Number.isInteger(v));
+
+      return [...new Set(valores)].sort((a, b) => a - b);
     }
 
     function calcularEscalaManualPorCenario(sufixo) {
@@ -867,6 +874,9 @@
     function renderGrafico(stateKey, canvasId, titulo, serie, cor, escala) {
       const chartAtual = estadoComparador[stateKey];
       if (chartAtual) chartAtual.destroy();
+      const ticksInteiros = obterTicksInteirosSerie(serie);
+      const minTick = ticksInteiros[0];
+      const maxTick = ticksInteiros[ticksInteiros.length - 1];
 
       const datasets = (serie.datasets || []).map(d => ({
         label: d.label,
@@ -898,10 +908,14 @@
             x: {
               type: "linear",
               title: { display: true, text: serie.xLabel },
-              min: escala.minX,
-              max: escala.maxX,
+              min: Number.isFinite(escala.minX) ? escala.minX : minTick,
+              max: Number.isFinite(escala.maxX) ? escala.maxX : maxTick,
+              afterBuildTicks: axis => {
+                if (!ticksInteiros.length) return;
+                axis.ticks = ticksInteiros.map(valor => ({ value: valor }));
+              },
               ticks: {
-                stepSize: 1,
+                autoSkip: false,
                 callback: value => {
                   if (!Number.isInteger(value)) return "";
                   return serie.prefixoSerie ? `${serie.prefixoSerie}${value}` : value;
