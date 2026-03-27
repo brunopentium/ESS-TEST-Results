@@ -188,6 +188,7 @@
       font-size: 1rem;
       font-weight: 700;
       color: var(--text-main);
+      text-align: center;
       border: 1px dashed transparent;
       border-radius: 8px;
       padding: 6px 8px;
@@ -755,8 +756,8 @@
         escalaB = calcularEscalaManualPorCenario("B");
       }
 
-      renderGrafico("chartA", "chartA", "Cenário A", serieA, "#1f77b4", escalaA);
-      renderGrafico("chartB", "chartB", "Cenário B", serieB, "#d62728", escalaB);
+      renderGrafico("chartA", "chartA", serieA, "#1f77b4", escalaA);
+      renderGrafico("chartB", "chartB", serieB, "#d62728", escalaB);
     }
 
     function sincronizarTituloEditavel(sufixo, sugestao) {
@@ -930,10 +931,9 @@
       return { minX, maxX, minY, maxY };
     }
 
-    function renderGrafico(stateKey, canvasId, titulo, serie, cor, escala) {
+    function renderGrafico(stateKey, canvasId, serie, cor, escala) {
       const chartAtual = estadoComparador[stateKey];
       if (chartAtual) chartAtual.destroy();
-      const sufixoTitulo = stateKey === "chartA" ? "A" : "B";
       const ticksInteiros = obterTicksInteirosSerie(serie);
       const minTick = ticksInteiros[0];
       const maxTick = ticksInteiros[ticksInteiros.length - 1];
@@ -991,10 +991,7 @@
           },
           plugins: {
             legend: { display: false },
-            title: {
-              display: true,
-              text: `${estadoComparador.titulosCustomizados[sufixoTitulo]?.texto || serie.tituloArquivo || titulo}`
-            }
+            title: { display: false }
           }
         }
       });
